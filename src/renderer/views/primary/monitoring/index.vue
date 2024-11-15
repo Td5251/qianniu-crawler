@@ -6,7 +6,7 @@
 					{{ item.title }}
 				</div>
 				<div class="info-content">
-					{{ statistics[item.dataIndex]?.toFixed(2) }}
+					{{ showContent(statistics[item.dataIndex]) }}
 				</div>
 			</div>
 		</div>
@@ -788,10 +788,22 @@ watch(bodyData, (newVal, oldVal) => {
 					//如果包含/则是今日/昨日 拿到今日的值
 					if (value.includes("/")) {
 						value = value.split("/")[0];
+						value = value.trim();
 					}
 
+					console.log("key: ", key, " value: ", value);
+					console.log(!isNaN(value));
+
+
+
 					//如果是数字
-					if (!isNaN(value)) {
+					// if (!isNaN(value)) {
+					// 	tempStatistics[key] += parseFloat(value);
+					// }
+
+					//正则匹配是否是数字
+					const regex = /^-?\d+(\.\d+)?$/
+					if (regex.test(value)) {
 						tempStatistics[key] += parseFloat(value);
 					}
 				}
@@ -805,6 +817,20 @@ watch(bodyData, (newVal, oldVal) => {
 }, { deep: true });
 
 
+const showContent = (item: any) => {
+	// statistics[item.dataIndex]? isNaN(statistics[item.dataIndex]) ? statistics[item.dataIndex] : $td.formatNumber(statistics[item.dataIndex]) : '/' }}
+
+	if (!item) {
+		return '0'
+	}
+
+	if (isNaN(item)) {
+		return item
+	}
+
+	return item.toFixed(2)
+
+}
 </script>
 
 <style scoped>

@@ -2,19 +2,16 @@ import path from "path";
 import { app, dialog, ipcMain, netLog } from "electron";
 import appState from "../../app-state";
 import WindowBase from "../window-base";
-import { net } from "electron/utility";
 const fs = require("fs");
-const http = require("http");
-const Excel = require("excel4node");
-const AdmZip = require("adm-zip");
-const { create } = require("windows-shortcuts");
-const puppeteer = require("puppeteer");
-// const puppeteer = require('puppeteer-extra');
-// const StealthPlugin = require('puppeteer-extra-plugin-stealth');
-// puppeteer.use(StealthPlugin());
+// const puppeteer = require("puppeteer");
+const puppeteer = require('puppeteer-core');
+const log = require('electron-log');
+log.transports.file.file = 'app.log';
+log.transports.console.level = 'info';
 let systemConfig: any = {
   isShowBrowser: false,
   maxOpenBrowserNumber: 15,
+  defaultChromePath: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
 }
 
 let accountLoginInfoMap = new Map();
@@ -22,6 +19,7 @@ let shopsInfoMap = new Map();
 let retrievingFlagMap = new Map();
 
 let currentOpenBrowserNumber = 0;
+
 
 
 class PrimaryWindow extends WindowBase {
@@ -41,7 +39,6 @@ class PrimaryWindow extends WindowBase {
 
     // 拦截close事件
     this._browserWindow?.on("close", (e) => {
-      console.log("close event intercepted");
 
       // if (!appState.allowExitApp) {
       //   this._browserWindow?.webContents.send("show-close-primary-win-msgbox");
@@ -65,7 +62,8 @@ class PrimaryWindow extends WindowBase {
       if (!fs.existsSync(configPath)) {
         let defaultConfig = {
           isShowBrowser: false,
-          maxOpenBrowserNumber: 15
+          maxOpenBrowserNumber: 15,
+          defaultChromePath: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
         }
 
         fs.writeFileSync(configPath, JSON.stringify(defaultConfig, null, 2));
@@ -75,13 +73,11 @@ class PrimaryWindow extends WindowBase {
       //读取配置文件
       systemConfig = JSON.parse(fs.readFileSync(configPath, "utf-8"));
 
-      console.log("系统配置：");
+      if (!systemConfig.defaultChromePath) {
+        systemConfig.defaultChromePath = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
+      }
 
-      console.log(systemConfig);
-
-
-
-
+      log.info("系统配置：", systemConfig);
     } catch (e) {
     }
   }
@@ -90,7 +86,6 @@ class PrimaryWindow extends WindowBase {
     ipcMain.on("message", (event, message) => {
       if (!this.isIpcMainEventBelongMe(event)) return;
 
-      console.log(message);
     });
 
     ipcMain.on("login-success", (event) => {
@@ -169,21 +164,6 @@ class PrimaryWindow extends WindowBase {
       }
     });
 
-    //监听删除文件列表
-    ipcMain.on("remove-file-list", (event, data) => {
-      console.log(data);
-      data.forEach((item: any) => {
-        //如果文件存在则删除
-        if (fs.existsSync(item)) {
-          fs.unlink(item, (err) => {
-            if (err) {
-              console.log(err);
-            }
-          });
-        }
-      });
-    });
-
     //监听获取桌面地址
     ipcMain.on("get-desktop-path", async (event, fileName) => {
       let desktopPath = app.getPath("desktop");
@@ -192,157 +172,9 @@ class PrimaryWindow extends WindowBase {
       this.browserWindow?.webContents.send("get-primary-value", savePath);
     });
 
-    //监听更新成功
-    ipcMain.on("update-success", async (event) => {
-      let thit = this;
-      setTimeout(async () => {
-        try {
-          //拿到当前软件所在的文件夹路径
-          const appPath = app.getAppPath();
-
-          let unzipPath = "ims" + new Date().getTime();
-
-          //下载的文件在桌面上 名称为ims.zip
-          const zipPath = path.join(app.getPath("desktop"), "ims.zip");
-
-          //解压文件
-          const zip = new AdmZip(zipPath);
-
-          //解压到appdata下的ims文件夹
-          zip.extractAllTo(path.join(app.getPath("appData"), unzipPath), true);
-
-          //将当前软件所在的文件夹路径存到 unzipPath中的td.json中
-          fs.writeFileSync(
-            path.join(app.getPath("appData"), unzipPath, "td.json"),
-            JSON.stringify({ appPath: appPath })
-          );
-
-          fs.unlink(zipPath, (err) => {
-            if (err) {
-              console.log(err);
-            }
-            console.log("删除zip文件");
-          });
-
-          // 定义目标 exe 文件的路径
-          const exePath = path.join(
-            app.getPath("appData"),
-            unzipPath,
-            "ims.exe"
-          );
-
-          // 定义快捷方式的路径和名称
-          const shortcutPath = path.join(app.getPath("desktop"), "ims.lnk");
-          // 创建快捷方式
-          create(shortcutPath, { target: exePath }, function (err) {
-            if (err) {
-              console.error("创建快捷方式时出错：", err);
-            } else {
-              console.log("快捷方式创建成功！");
-            }
-          });
-
-          this.browserWindow?.webContents.send(
-            "show-success-msgbox",
-            "更新成功"
-          );
-
-          //将当前的目录名称存到配置文件中
-          appState.cfgStore?.set("unzipPath", unzipPath);
-
-          // 退出程序
-          setTimeout(() => {
-            thit.browserWindow?.close();
-          }, 500);
-        } catch (e: any) {
-          console.log(e);
-          this.browserWindow?.webContents.send("show-error-msgbox", "更新失败");
-        }
-      }, 1000);
-    });
-
-    //监听清空更新文件
-    ipcMain.on("clear-update-file", async (event) => {
-      try {
-        //删除文件夹
-        const unzipPath: any = appState.cfgStore?.get("unzipPath", "");
-        if (unzipPath) {
-          //拿到appdata目录下所有包含ims的文件夹
-          const files = fs.readdirSync(app.getPath("appData"));
-          files.forEach((item: any) => {
-            //如果包含ims 并且不全等于ims 并且不等于unzipPath 则删除
-            if (
-              item.toLowerCase().includes("ims") &&
-              item.toLowerCase() !== "ims" &&
-              item.toLowerCase() !== unzipPath.toLowerCase()
-            ) {
-              const filePath = path.join(app.getPath("appData"), item);
-              fs.rmdirSync(filePath, { recursive: true });
-            }
-          });
-
-          //发送清空成功
-          this.browserWindow?.webContents.send(
-            "show-success-msgbox",
-            "清空更新文件成功"
-          );
-        }
-      } catch (e: any) {
-        console.log(e);
-        this.browserWindow?.webContents.send(
-          "show-error-msgbox",
-          "清空更新文件失败"
-        );
-      }
-    });
-
-    //监听获取更新缓存
-    ipcMain.on("get-update-cache", async (event) => {
-      try {
-        //获取所有的文件夹
-        const files = fs.readdirSync(app.getPath("appData"));
-
-        //定义一个数组存放文件夹
-        let fileList: any = [];
-        //遍历所有文件夹 如果包含ims 且不等于ims 且 不等于unzipPath 则存放到数组中
-        files.forEach((item: any) => {
-          if (
-            item.toLowerCase().includes("ims") &&
-            item.toLowerCase() !== "ims"
-          ) {
-            fileList.push(item);
-          }
-        });
-        console.log(app.getPath("appData"));
-        console.log(fileList);
-
-        //获取数组中所有文件夹的大小
-        let size = 0;
-
-        //发送获取成功
-        this.browserWindow?.webContents.send("get-update-cache", {
-          fileList: fileList,
-          size: size,
-        });
-
-        this.browserWindow?.webContents.send(
-          "show-success-msgbox",
-          "当前可清空的更新缓存为：" + size / 1024 / 1024 + "MB"
-        );
-      } catch (e: any) {
-        console.log(e);
-        this.browserWindow?.webContents.send(
-          "show-error-msgbox",
-          "获取更新缓存失败"
-        );
-      }
-    });
 
     //店铺登录
     ipcMain.on("shops-login", async (event, param) => {
-      console.log("打开登录界面");
-      console.log(param);
-
       let requestParam = JSON.parse(param);
 
       try {
@@ -353,8 +185,6 @@ class PrimaryWindow extends WindowBase {
 
         //拼接上用户名
         userDataDir = path.join(userDataDir, userDataDirName);
-
-        console.log(userDataDir);
 
         let cookieDir = path.join(app.getPath("appData"), "qianniu-crawler-cookie");
 
@@ -386,7 +216,8 @@ class PrimaryWindow extends WindowBase {
             '--disable-setuid-sandbox',
             '--disable-blink-features=AutomationControlled'  // 禁用浏览器的自动化标识
           ],
-          userDataDir: userDataDir
+          userDataDir: userDataDir,
+          executablePath: systemConfig.defaultChromePath
         });
 
         //打开新页面
@@ -442,7 +273,7 @@ class PrimaryWindow extends WindowBase {
           //拿到当前地址
           let currentUrl = response.url();
 
-          console.log("当前地址：" + currentUrl);
+          log.info("当前地址：" + currentUrl);
 
 
           // if (currentUrl == 'https://gm.mmstat.com/aes.1.1') {
@@ -451,7 +282,7 @@ class PrimaryWindow extends WindowBase {
             //将浏览器最小化
             thit.browserWindow?.minimize();
 
-            console.log("登录成功");
+            log.info("登录成功");
 
             //保存cookies
             const cookies = await loginPage.cookies();
@@ -492,7 +323,7 @@ class PrimaryWindow extends WindowBase {
                 await item.close();
               });
             } catch (e: any) {
-              console.log("自动关闭失败");
+              log.error("自动关闭失败", e);
             }
 
             thit.browserWindow?.webContents.send("get-login-info", accountLoginInfoMap);
@@ -508,7 +339,8 @@ class PrimaryWindow extends WindowBase {
         // this.browserWindow?.webContents.send("get-login-info", accountLoginInfoMap);
 
       } catch (e: any) {
-        console.log(e);
+        log.error("登录error：");
+        log.error(e);
         this.browserWindow?.webContents.send("show-error-msgbox", "账号: " + requestParam.username + " 登录失败 请稍后重试!");
       }
 
@@ -516,9 +348,6 @@ class PrimaryWindow extends WindowBase {
 
     //获取登录信息
     ipcMain.on("get-login-info", async (event) => {
-      console.log("获取登录信息");
-      console.log(accountLoginInfoMap);
-
       //将当前登录信息发送到渲染进程
       this.browserWindow?.webContents.send("get-login-info", accountLoginInfoMap);
     });
@@ -530,14 +359,14 @@ class PrimaryWindow extends WindowBase {
       let retrievingFlag = retrievingFlagMap.get(requestParam.id);
 
       if (retrievingFlag) {
-        console.log(requestParam.id + " 正在获取中");
+        log.info(requestParam.id + " 正在获取中");
 
         return;
       }
 
       retrievingFlagMap.set(requestParam.id, true);
 
-      console.log("-----------收到执行获取：" + requestParam.id + "店铺信息的任务-----------");
+      log.info("-----------收到执行获取：" + requestParam.id + "店铺信息的任务-----------");
       try {
         let loginFlag = accountLoginInfoMap.get(requestParam.username);
 
@@ -560,18 +389,18 @@ class PrimaryWindow extends WindowBase {
 
 
         systemConfig.maxOpenBrowserNumber = parseInt(systemConfig.maxOpenBrowserNumber);
-        console.log("当前系统配置：", systemConfig);
-        console.log("当前打开浏览器数量：", currentOpenBrowserNumber);
+        log.info("当前系统配置：", systemConfig);
+        log.info("当前打开浏览器数量：", currentOpenBrowserNumber);
 
 
         //自旋锁等待浏览器数量小于最大值
         while (currentOpenBrowserNumber >= systemConfig.maxOpenBrowserNumber) {
-          console.log(requestParam.id + "-等待中");
+          log.info(requestParam.id + "-等待中");
 
           await new Promise((resolve) => setTimeout(resolve, 1000));
         }
 
-        console.log("开始执行获取：" + requestParam.id + "店铺信息的任务");
+        log.info("开始执行获取：" + requestParam.id + "店铺信息的任务");
 
         currentOpenBrowserNumber++;
 
@@ -585,7 +414,7 @@ class PrimaryWindow extends WindowBase {
             '--disable-setuid-sandbox',
             '--disable-blink-features=AutomationControlled'  // 禁用浏览器的自动化标识
           ],
-          // executablePath: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
+          executablePath: systemConfig.defaultChromePath
         });
 
         //打开新页面 用于恢复cookie
@@ -596,8 +425,7 @@ class PrimaryWindow extends WindowBase {
         try {
           isLogin = await initCookie(initCookiePage, requestParam) as any
         } catch (e: any) {
-          console.log("恢复cookie失败");
-          console.log(e.message);
+          log.error("恢复cookie失败", e);
           isLogin = false;
         }
 
@@ -661,8 +489,8 @@ class PrimaryWindow extends WindowBase {
         try {
           await browser.close();
         } catch (e: any) {
-          console.log("关闭浏览器失败");
-          console.log(e);
+          log.info("关闭浏览器失败");
+          log.info(e);
         }
 
         //将当前店铺信息发送到渲染进程
@@ -683,15 +511,15 @@ class PrimaryWindow extends WindowBase {
 
     //获取配置
     ipcMain.on("get-config", (event) => {
-      console.log("获取配置");
+      log.info("获取配置");
 
       this.browserWindow?.webContents.send("get-config", JSON.stringify(systemConfig));
     })
 
     //设置配置
     ipcMain.on("set-config", (event, param) => {
-      console.log("设置配置");
-      console.log(param);
+      log.info("设置配置");
+      log.info(param);
 
       systemConfig = JSON.parse(param);
 
@@ -699,48 +527,13 @@ class PrimaryWindow extends WindowBase {
 
       fs.writeFileSync(configPath, JSON.stringify(systemConfig, null, 2));
 
-      // console.log("设置成功");
+      // log.info("设置成功");
       this.browserWindow?.webContents.send("show-success-msgbox", "设置成功");
     });
   }
 
 }
 
-const downloadImage = async (item) => {
-  let imageUrl = item.pictureUrl;
-  const tempDir = app.getPath("temp");
-  if (!fs.existsSync(tempDir)) {
-    fs.mkdirSync(tempDir);
-  }
-  const imageName = path.basename(imageUrl);
-  const imagePath = path.join(tempDir, imageName);
-
-  const file = fs.createWriteStream(imagePath);
-
-  return new Promise((resolve, reject) => {
-    const request = http.get(imageUrl, (response) => {
-      if (response.statusCode !== 200) {
-        //响应一个空地址
-        resolve("");
-        return;
-      }
-
-      response.pipe(file);
-
-      file.on("finish", () => {
-        file.close(() => {
-          resolve(imagePath);
-        });
-      });
-    });
-
-    request.on("error", (err) => {
-      fs.unlink(imagePath, () => {
-        reject(err);
-      });
-    });
-  });
-};
 
 //登录
 const login = async (loginPage: any, username: string, password: string) => {
@@ -782,7 +575,6 @@ const login = async (loginPage: any, username: string, password: string) => {
     let currentUrl = response.url();
 
     if (currentUrl == 'https://myseller.taobao.com/home.htm/bc-templates/') {
-      console.log("登录成功");
 
       //保存cookies
       const cookies = await loginPage.cookies();
@@ -819,7 +611,7 @@ const login = async (loginPage: any, username: string, password: string) => {
           await item.close();
         });
       } catch (e: any) {
-        console.log("自动关闭失败");
+        log.error("自动关闭失败", e);
 
       }
     }
@@ -863,8 +655,7 @@ const getOperationAndWanXiangTaiData = async (browserParam: any) => {
       return shopNameEle?.innerText || "获取失败";
     });
   } catch (e: any) {
-    console.log("获取店铺名称失败");
-    console.log(e.message);
+    log.error("获取店铺名称失败", e);
 
     shopName = "网络异常 请重新获取";
   }
@@ -913,8 +704,8 @@ const getOperationAndWanXiangTaiData = async (browserParam: any) => {
       };
     });
   } catch (e: any) {
-    console.log("获取运维数据失败");
-    console.log(e.message);
+    log.error("获取运维数据失败");
+    log.error(e.message);
 
     operationData = {
       toBeDelivered: "网络异常 请重新获取",
@@ -975,7 +766,7 @@ const getOperationAndWanXiangTaiData = async (browserParam: any) => {
       return boxEle?.innerText || "";
     });
 
-    // console.log("万相台数据：", wanxiangtaiData);
+    // log.error("万相台数据：", wanxiangtaiData);
 
 
     let temp = wanxiangtaiData.split("\n");
@@ -1083,9 +874,9 @@ const getOperationAndWanXiangTaiData = async (browserParam: any) => {
       wxtProfit: wxtProfit
     }
   } catch (e: any) {
-    console.log("获取万相台数据失败");
+    log.error("获取万相台数据失败");
 
-    console.log(e.message);
+    log.error(e.message);
 
     wanxiangtaiData = {
       visitor: "获取失败",
@@ -1277,9 +1068,9 @@ const getOperationAndWanXiangTaiData = async (browserParam: any) => {
       collectionNumber: collectionNumber
     }
   } catch (e: any) {
-    console.log("获取其他指标数据失败");
+    log.error("获取其他指标数据失败");
 
-    console.log(e.message);
+    log.error(e.message);
 
     otherIndicatorsData = {
       addToCart: "获取失败",
@@ -1326,8 +1117,8 @@ const getGoodsData = async (browserParam: any) => {
       }
     });
   } catch (e: any) {
-    console.log("获取商品数据失败");
-    console.log(e.message);
+    log.error("获取商品数据失败");
+    log.error(e.message);
 
     goodsData = {
       selling: "获取失败",
@@ -1384,8 +1175,8 @@ const getDepositData = async (browserParam: any) => {
       return depositDataList;
     });
   } catch (e: any) {
-    console.log("获取保证金数据失败");
-    console.log(e.message);
+    log.error("获取保证金数据失败");
+    log.error(e.message);
 
 
     depositData = [];
@@ -1457,7 +1248,7 @@ const getAggregateBalanceData = async (browserParam: any) => {
   //等待页面加载完成
   await aggregateBalancePage.waitForNavigation();
 
-  await new Promise((resolve) => setTimeout(resolve, 2000));
+  await new Promise((resolve) => setTimeout(resolve, 3000));
 
   //等待.next-row元素加载完毕
   await aggregateBalancePage.waitForSelector(".next-row");
@@ -1471,8 +1262,8 @@ const getAggregateBalanceData = async (browserParam: any) => {
       return ele?.innerText || "获取失败";
     });
   } catch (e: any) {
-    console.log("获取聚合账户余额失败");
-    console.log(e.message);
+    log.error("获取聚合账户余额失败");
+    log.error(e.message);
 
     data = "获取失败";
 
@@ -1505,8 +1296,8 @@ const getShopLevelData = async (browserParam: any) => {
     })
 
   } catch (e: any) {
-    console.log("获取店铺层级失败");
-    console.log(e.message);
+    log.error("获取店铺层级失败");
+    log.error(e.message);
 
     shopLevel = "获取失败";
   }
@@ -1515,7 +1306,6 @@ const getShopLevelData = async (browserParam: any) => {
 }
 
 const initCookie = async (initCookiePage: any, requestParam: any) => {
-  console.log("开始初始化cookie");
 
   //恢复cookie
   let cookieDir = path.join(app.getPath("appData"), "qianniu-crawler-cookie");
@@ -1531,7 +1321,7 @@ const initCookie = async (initCookiePage: any, requestParam: any) => {
 
   //判断文件是否存在
   if (!fs.existsSync(cookieDir)) {
-    console.log("cookie文件不存在");
+    log.error("cookie文件不存在");
 
     return false;
   }
@@ -1702,8 +1492,8 @@ const getStatisticsData = async (browserParam: any) => {
 
 
   } catch (e: any) {
-    console.log("获取监控-服务数据失败");
-    console.log(e.message);
+    log.error("获取监控-服务数据失败");
+    log.error(e.message);
 
     consultationRate = "获取失败";
     refundRate = "获取失败";
@@ -2084,8 +1874,8 @@ const getStatisticsData = async (browserParam: any) => {
     }
 
   } catch (e: any) {
-    console.log("获取监控-运营数据失败");
-    console.log(e.message);
+    log.error("获取监控-运营数据失败");
+    log.error(e.message);
     payAmount = "获取失败";
     refund = "获取失败"
     netAmount = "获取失败";
@@ -2125,8 +1915,8 @@ const getStatisticsData = async (browserParam: any) => {
     });
 
   } catch (e: any) {
-    console.log("获取店铺客户数失败");
-    console.log(e.message);
+    log.error("获取店铺客户数失败");
+    log.error(e.message);
 
 
     shopCustomerNumber = "获取失败";
@@ -2159,7 +1949,4 @@ const getStatisticsData = async (browserParam: any) => {
   }
 
 }
-
-
-
 export default PrimaryWindow;

@@ -61,8 +61,8 @@ function CreateAppTray(): Tray {
   // }
 
   tray.setContextMenu(contextMenu);
-  tray.setToolTip("IMS");
-  tray.setTitle("进销存系统");
+  tray.setToolTip("qianniu-crawler");
+  tray.setTitle("千牛辅助查询系统");
 
   return tray;
 }

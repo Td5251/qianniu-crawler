@@ -119,12 +119,12 @@ const columns: any = [
 		key: "username",
 		align: "center",
 	},
-	{
-		title: "密码",
-		dataIndex: "password",
-		key: "password",
-		align: "center",
-	},
+	// {
+	// 	title: "密码",
+	// 	dataIndex: "password",
+	// 	key: "password",
+	// 	align: "center",
+	// },
 	{
 		title: "登录状态",
 		dataIndex: "status",

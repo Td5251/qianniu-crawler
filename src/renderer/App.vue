@@ -120,11 +120,11 @@
 }
 
 .bottom div {
-  font-size: 10px !important;
+  /* font-size: 10px !important; */
 }
 
 .bottom span {
-  font-size: 10px !important;
+  /* font-size: 10px !important; */
 }
 
 .ant-btn-sm {

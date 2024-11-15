@@ -10,6 +10,10 @@
 				<a-form-item label="爬取线程数">
 					<a-input v-model:value="requestParam.maxOpenBrowserNumber" type="number" :min="1" />
 				</a-form-item>
+
+				<a-form-item label="默认浏览器路径">
+					<a-input v-model:value="requestParam.defaultChromePath" />
+				</a-form-item>
 			</a-form>
 
 			<template #footer>
@@ -33,12 +37,14 @@ let emit = defineEmits(["submit"]);
 
 let requestParam = ref({
 	isShowBrowser: false,
-	maxOpenBrowserNumber: 15
+	maxOpenBrowserNumber: 15,
+	defaultChromePath: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
 });
 
 let requestParamStart: any = ref({
 	isShowBrowser: false,
-	maxOpenBrowserNumber: 15
+	maxOpenBrowserNumber: 15,
+	defaultChromePath: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
 });
 
 let getElectronApi = () => {
