@@ -82,6 +82,8 @@ class PrimaryWindow extends WindowBase {
     }
   }
 
+
+
   protected registerIpcMainHandler(): void {
     ipcMain.on("message", (event, message) => {
       if (!this.isIpcMainEventBelongMe(event)) return;
@@ -212,9 +214,13 @@ class PrimaryWindow extends WindowBase {
         let browser = await puppeteer.launch({
           headless: false,
           args: [
+            '--disable-infobars',       // 禁用信息条（包括错误提示）
+            '--disable-extensions',     // 禁用扩展
+            '--disable-popup-blocking', // 禁用弹窗阻止
             '--no-sandbox',
             '--disable-setuid-sandbox',
-            '--disable-blink-features=AutomationControlled'  // 禁用浏览器的自动化标识
+            '--disable-blink-features=AutomationControlled',  // 禁用浏览器的自动化标识
+            '--start-maximized' //全屏
           ],
           userDataDir: userDataDir,
           executablePath: systemConfig.defaultChromePath
@@ -264,72 +270,99 @@ class PrimaryWindow extends WindowBase {
         //点击登录
         await loginPage.click('.password-login');
 
-        await loginPage.waitForNavigation({ waitUntil: 'networkidle0' });
+        try {
+          await loginPage.waitForNavigation();
+        } catch (e) {
+          log.error("等待超时");
+        }
+        // await loginPage.waitForNavigation({ waitUntil: 'networkidle0' });
 
         let thit = this;
 
+        //拿到当前地址
+        let currentUrl = loginPage.url();
+
+        log.info("当前地址---：" + currentUrl);
+
+        if (currentUrl.includes("login.taobao.com")) {
+          loginPage.on('framenavigated', (frame) => {
+            log.info('地址变化:', frame.url());
+
+            if (frame.url().includes("myseller.taobao.com/home.htm")
+              && !frame.url().includes("redirect_url")
+            ) {
+              log.info("登录成功,当前地址：" + frame.url());
+              loginSuccess(loginPage, requestParam, thit);
+            }
+          });
+
+        } else {
+          log.info("登录成功,当前地址：" + currentUrl);
+          loginSuccess(loginPage, requestParam, thit);
+        }
+
         //监听跳转后的地址
-        loginPage.on("response", async (response: any) => {
-          //拿到当前地址
-          let currentUrl = response.url();
+        // loginPage.on("response", async (response: any) => {
+        //   //拿到当前地址
+        //   let currentUrl = response.url();
 
-          log.info("当前地址：" + currentUrl);
+        //   log.info("当前地址：" + currentUrl);
 
 
-          // if (currentUrl == 'https://gm.mmstat.com/aes.1.1') {
-          if (currentUrl == 'https://g.alicdn.com/tb/tracker/index.js') {
+        //   // if (currentUrl == 'https://gm.mmstat.com/aes.1.1') {
+        //   if (currentUrl == 'https://g.alicdn.com/tb/tracker/index.js') {
 
-            //将浏览器最小化
-            thit.browserWindow?.minimize();
+        //     //将浏览器最小化
+        //     thit.browserWindow?.minimize();
 
-            log.info("登录成功");
+        //     log.info("登录成功");
 
-            //保存cookies
-            const cookies = await loginPage.cookies();
+        //     //保存cookies
+        //     const cookies = await loginPage.cookies();
 
-            //过期时间为10天后
-            let expires = Date.now() / 1000 + 10 * 24 * 60 * 60;
+        //     //过期时间为10天后
+        //     let expires = Date.now() / 1000 + 10 * 24 * 60 * 60;
 
-            //将.之后的去掉
-            expires = Math.floor(expires);
+        //     //将.之后的去掉
+        //     expires = Math.floor(expires);
 
-            const persistentCookies = cookies.map(cookie => ({
-              ...cookie,
-              expires: expires
-            }));
+        //     const persistentCookies = cookies.map(cookie => ({
+        //       ...cookie,
+        //       expires: expires
+        //     }));
 
-            let cookieDir = path.join(app.getPath("appData"), "qianniu-crawler-cookie");
+        //     let cookieDir = path.join(app.getPath("appData"), "qianniu-crawler-cookie");
 
-            if (!fs.existsSync(cookieDir)) {
-              fs.mkdirSync(cookieDir);
-            }
+        //     if (!fs.existsSync(cookieDir)) {
+        //       fs.mkdirSync(cookieDir);
+        //     }
 
-            let dirName = requestParam.username.replace(":", "") + ".json";
+        //     let dirName = requestParam.username.replace(":", "") + ".json";
 
-            //拼接上用户名
-            cookieDir = path.join(cookieDir, dirName);
+        //     //拼接上用户名
+        //     cookieDir = path.join(cookieDir, dirName);
 
-            //写入文件
-            fs.writeFileSync(cookieDir, JSON.stringify(persistentCookies, null, 2));
+        //     //写入文件
+        //     fs.writeFileSync(cookieDir, JSON.stringify(persistentCookies, null, 2));
 
-            accountLoginInfoMap.set(requestParam.username, {
-              loginTime: new Date().getTime()
-            });
+        //     accountLoginInfoMap.set(requestParam.username, {
+        //       loginTime: new Date().getTime()
+        //     });
 
-            //关闭当前所有页面
-            try {
-              let pages = await loginPage.browser().pages();
-              pages.forEach(async (item: any) => {
-                await item.close();
-              });
-            } catch (e: any) {
-              log.error("自动关闭失败", e);
-            }
+        //     //关闭当前所有页面
+        //     try {
+        //       let pages = await loginPage.browser().pages();
+        //       pages.forEach(async (item: any) => {
+        //         await item.close();
+        //       });
+        //     } catch (e: any) {
+        //       log.error("自动关闭失败", e);
+        //     }
 
-            thit.browserWindow?.webContents.send("get-login-info", accountLoginInfoMap);
-          }
+        //     thit.browserWindow?.webContents.send("get-login-info", accountLoginInfoMap);
+        //   }
 
-        });
+        // });
 
         // accountLoginInfoMap.set(requestParam.username, {
         //   loginTime: new Date().getTime()
@@ -624,31 +657,28 @@ const getOperationAndWanXiangTaiData = async (browserParam: any) => {
   let homePage = await browserParam.newPage();
   homePage.goto("https://myseller.taobao.com/home.htm/QnworkbenchHome/");
 
-  //等待加载完毕
-  await homePage.waitForNavigation();
-
-  //document.querySelectorAll('[class*="skip"]');
-
-  await homePage.evaluate(() => {
-    let skipBtnList = document.querySelectorAll('[class*="skip"]');
-    skipBtnList.forEach((item: any) => {
-      item.click();
-    });
-  });
-
-  await homePage.evaluate(() => {
-    let skipBtnList = document.querySelectorAll('[class*="Skip"]');
-    skipBtnList.forEach((item: any) => {
-      item.click();
-    });
-  });
-
-
-
   //获取店铺名称
   let shopName;
 
   try {
+    //等待加载完毕
+    await homePage.waitForNavigation();
+
+    //document.querySelectorAll('[class*="skip"]');
+
+    await homePage.evaluate(() => {
+      let skipBtnList = document.querySelectorAll('[class*="skip"]');
+      skipBtnList.forEach((item: any) => {
+        item.click();
+      });
+    });
+
+    await homePage.evaluate(() => {
+      let skipBtnList = document.querySelectorAll('[class*="Skip"]');
+      skipBtnList.forEach((item: any) => {
+        item.click();
+      });
+    });
     shopName = await homePage.evaluate(() => {
       let shopNameEle = document.querySelectorAll('#icestarkNode [class*="shopCard_shopName"]')[0] as any
 
@@ -660,19 +690,17 @@ const getOperationAndWanXiangTaiData = async (browserParam: any) => {
     shopName = "网络异常 请重新获取";
   }
 
-  //等待.qndatafont_md元素加载完毕
-  // await homePage.waitForSelector(".qndatafont_md");
-  await homePage.waitForSelector('[title="待发货"]', { visible: true });
-  await homePage.waitForSelector('[title="待付款"]', { visible: true });
-  await homePage.waitForSelector('[title="待处理投诉"]', { visible: true });
-  await homePage.waitForSelector('[title="待售后"]', { visible: true });
-  await homePage.waitForSelector('[title="待评价"]', { visible: true });
-
-
   //运维数据
   let operationData;
 
   try {
+    //等待.qndatafont_md元素加载完毕
+    // await homePage.waitForSelector(".qndatafont_md");
+    await homePage.waitForSelector('[title="待发货"]', { visible: true });
+    await homePage.waitForSelector('[title="待付款"]', { visible: true });
+    await homePage.waitForSelector('[title="待处理投诉"]', { visible: true });
+    await homePage.waitForSelector('[title="待售后"]', { visible: true });
+    await homePage.waitForSelector('[title="待评价"]', { visible: true });
     operationData = await homePage.evaluate(() => {
       //待发货
       let pendingDeliveryEle = document.querySelector('[title="待发货"]') as any
@@ -719,15 +747,15 @@ const getOperationAndWanXiangTaiData = async (browserParam: any) => {
   //万相台数据
   let wanxiangtaiData;
 
-  //等待.qn_plus_square元素加载完毕
-  await homePage.waitForSelector(".qn_plus_square");
-
-  //获取到此元素并点击
-  await homePage.click(".qn_plus_square");
-
-  await homePage.waitForSelector('.next-dialog-body .next-tag');
 
   try {
+    //等待.qn_plus_square元素加载完毕
+    await homePage.waitForSelector(".qn_plus_square");
+
+    //获取到此元素并点击
+    await homePage.click(".qn_plus_square");
+
+    await homePage.waitForSelector('.next-dialog-body .next-tag');
 
     await homePage.evaluate(() => {
 
@@ -897,15 +925,16 @@ const getOperationAndWanXiangTaiData = async (browserParam: any) => {
   //其他指标数据
   let otherIndicatorsData;
 
-  //等待.qn_plus_square元素加载完毕
-  await homePage.waitForSelector(".qn_plus_square");
 
-  //获取其他指标数据
-  await homePage.click(".qn_plus_square");
-
-  await homePage.waitForSelector(".next-dialog-body .next-tag");
 
   try {
+    //等待.qn_plus_square元素加载完毕
+    await homePage.waitForSelector(".qn_plus_square");
+
+    //获取其他指标数据
+    await homePage.click(".qn_plus_square");
+
+    await homePage.waitForSelector(".next-dialog-body .next-tag");
     await homePage.evaluate(() => {
 
       const tags = document.querySelectorAll('.next-dialog-body .next-tag') as any;
@@ -1095,16 +1124,19 @@ const getOperationAndWanXiangTaiData = async (browserParam: any) => {
 const getGoodsData = async (browserParam: any) => {
   let goodsPage = await browserParam.newPage();
   goodsPage.goto("https://myseller.taobao.com/home.htm/SellManage/all?current=1&pageSize=1");
-  //等待页面加载完成
-  await goodsPage.waitForNavigation();
 
-
-  //等待 .next-tabs-nav 加载完毕
-  await goodsPage.waitForSelector(".next-tabs-nav");
 
   let goodsData: any;
+  let selling: any;
+  let warehouse: any;
 
   try {
+    //等待页面加载完成
+    await goodsPage.waitForNavigation();
+
+
+    //等待 .next-tabs-nav 加载完毕
+    await goodsPage.waitForSelector(".next-tabs-nav");
     goodsData = await goodsPage.evaluate(() => {
 
       let navList = document.querySelector(".next-tabs-nav")?.children as any;
@@ -1116,6 +1148,10 @@ const getGoodsData = async (browserParam: any) => {
         warehouse: navList[2].innerText,
       }
     });
+
+    //将selling和warehouse中的数字正则匹配出来
+    selling = goodsData.selling.match(/\d+/g);
+    warehouse = goodsData.warehouse.match(/\d+/g);
   } catch (e: any) {
     log.error("获取商品数据失败");
     log.error(e.message);
@@ -1126,9 +1162,7 @@ const getGoodsData = async (browserParam: any) => {
     }
   }
 
-  //将selling和warehouse中的数字正则匹配出来
-  let selling = goodsData.selling.match(/\d+/g);
-  let warehouse = goodsData.warehouse.match(/\d+/g);
+
 
   return {
     selling: selling[0],
@@ -1143,19 +1177,7 @@ const getDepositData = async (browserParam: any) => {
 
   depositPage.goto("https://jibu.taobao.com/?nolayout=true#/home");
 
-  //等待页面加载完成
-  await depositPage.waitForNavigation();
 
-
-  //等待.detail-btn元素加载完毕
-  await depositPage.waitForSelector(".quota-header-box button");
-
-  //点击
-  await depositPage.click(".quota-header-box button");
-
-
-  //等待0.5s
-  await await new Promise((resolve) => setTimeout(resolve, 500));
 
   let depositData;
   let margin = ""
@@ -1164,6 +1186,19 @@ const getDepositData = async (browserParam: any) => {
   let transaction = ""
 
   try {
+    //等待页面加载完成
+    await depositPage.waitForNavigation();
+
+
+    //等待.detail-btn元素加载完毕
+    await depositPage.waitForSelector(".quota-header-box button");
+
+    //点击
+    await depositPage.click(".quota-header-box button");
+
+
+    //等待0.5s
+    await await new Promise((resolve) => setTimeout(resolve, 500));
     depositData = await depositPage.evaluate(() => {
       let depositEleList = document.querySelectorAll(".label-amount-detail") as any;
 
@@ -1174,19 +1209,8 @@ const getDepositData = async (browserParam: any) => {
 
       return depositDataList;
     });
-  } catch (e: any) {
-    log.error("获取保证金数据失败");
-    log.error(e.message);
 
-
-    depositData = [];
-    margin = "获取失败";
-    riskMargin = "获取失败";
-    needToPayMargin = "获取失败";
-    transaction = "获取失败";
-  }
-
-  /**
+    /**
    *  
 [
   '保证金可用余额\n500.00\n元\n明细',
@@ -1204,28 +1228,40 @@ const getDepositData = async (browserParam: any) => {
 
 
 
-  for (let i = 0; i < depositData.length; i++) {
-    let item = depositData[i];
-    //将,去掉
-    item = item.replaceAll(/,/g, "");
+    for (let i = 0; i < depositData.length; i++) {
+      let item = depositData[i];
+      //将,去掉
+      item = item.replaceAll(/,/g, "");
 
-    if (item.includes("保证金可用余额")) {
-      //正则出所有数字
-      margin = item.match(/(\d+\.\d+|\d+)/)[0]
+      if (item.includes("保证金可用余额")) {
+        //正则出所有数字
+        margin = item.match(/(\d+\.\d+|\d+)/)[0]
+      }
+
+      if (item.includes("风险")) {
+        riskMargin = item.match(/(\d+\.\d+|\d+)/)[0]
+      }
+
+      if (item.includes("待补缴")) {
+        needToPayMargin = item.match(/(\d+\.\d+|\d+)/)[0]
+      }
+
+      if (item.includes("近30天成交金额")) {
+        item = item.replace("近30天成交金额", "");
+        transaction = item.match(/(\d+\.\d+|\d+)/)[0]
+      }
     }
 
-    if (item.includes("风险")) {
-      riskMargin = item.match(/(\d+\.\d+|\d+)/)[0]
-    }
+  } catch (e: any) {
+    log.error("获取保证金数据失败");
+    log.error(e.message);
 
-    if (item.includes("待补缴")) {
-      needToPayMargin = item.match(/(\d+\.\d+|\d+)/)[0]
-    }
 
-    if (item.includes("近30天成交金额")) {
-      item = item.replace("近30天成交金额", "");
-      transaction = item.match(/(\d+\.\d+|\d+)/)[0]
-    }
+    depositData = [];
+    margin = "获取失败";
+    riskMargin = "获取失败";
+    needToPayMargin = "获取失败";
+    transaction = "获取失败";
   }
 
 
@@ -1245,18 +1281,17 @@ const getAggregateBalanceData = async (browserParam: any) => {
 
   aggregateBalancePage.goto("https://myseller.taobao.com/home.htm/whale-accountant/pay/capital/home");
 
-  //等待页面加载完成
-  await aggregateBalancePage.waitForNavigation();
-
-  await new Promise((resolve) => setTimeout(resolve, 3000));
-
-  //等待.next-row元素加载完毕
-  await aggregateBalancePage.waitForSelector(".next-row");
-
 
   let data;
 
   try {
+    //等待页面加载完成
+    await aggregateBalancePage.waitForNavigation();
+
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+
+    //等待.next-row元素加载完毕
+    await aggregateBalancePage.waitForSelector(".next-row");
     data = await aggregateBalancePage.evaluate(() => {
       let ele = document.querySelector('#icestarkNode [class*="BalanceCommon_contentValue-large"]') as any;
       return ele?.innerText || "获取失败";
@@ -1277,19 +1312,35 @@ const getAggregateBalanceData = async (browserParam: any) => {
 //获取店铺层级
 const getShopLevelData = async (browserParam: any) => {
   let shopLevelPage = await browserParam.newPage();
-
-  //https://sycm.taobao.com/portal/home.htm 店铺层级
-  shopLevelPage.goto("https://sycm.taobao.com/portal/home.htm");
-
-  //等待页面加载完成
-  await shopLevelPage.waitForNavigation();
-
-  //等待.detail元素加载完毕
-  await shopLevelPage.waitForSelector(".detail");
-
   let shopLevel;
-
   try {
+    //https://sycm.taobao.com/portal/home.htm 店铺层级
+    shopLevelPage.goto("https://sycm.taobao.com/portal/home.htm");
+
+    //等待页面加载完成
+    await shopLevelPage.waitForNavigation();
+
+    //等待.ebase-frame-header-text元素加载完毕
+    await shopLevelPage.waitForSelector(".ebase-frame-header-text");
+
+    await shopLevelPage.evaluate(() => {
+
+      let ele = document.querySelector(".ebase-frame-header-text") as any;
+      let text = ele?.innerText || "";
+
+      if ("返回旧版" == text) {
+        ele.click();
+      }
+    })
+
+    //等待页面加载完成
+    await shopLevelPage.waitForNavigation();
+
+    //等待.detail元素加载完毕
+    await shopLevelPage.waitForSelector(".detail");
+
+
+
     shopLevel = await shopLevelPage.evaluate(() => {
       let shopLevelEle = document.querySelector(".detail") as any;
       return shopLevelEle?.innerText || "获取失败"
@@ -1423,11 +1474,12 @@ const getStatisticsData = async (browserParam: any) => {
   let page = await browserParam.newPage();
   page.goto("https://sycm.taobao.com/portal/home.htm?activeKey=service");
   // page.goto("https://sycm.taobao.com/portal/home.htm");
-  //等待页面加载完成
-  await page.waitForNavigation();
+
 
 
   try {
+    //等待页面加载完成
+    await page.waitForNavigation();
 
     //获取.oui-floor-nav-floor3元素
     await page.waitForSelector(".oui-floor-nav");
@@ -1502,11 +1554,10 @@ const getStatisticsData = async (browserParam: any) => {
 
   //获取运营数据
   page.goto("https://sycm.taobao.com/portal/home.htm");
-  //等待页面加载完成
-  await page.waitForNavigation();
-
 
   try {
+    //等待页面加载完成
+    await page.waitForNavigation();
 
     //等待oui-floor-nav-floor1元素加载完毕
     await page.waitForSelector(".oui-floor-nav-floor1");
@@ -1949,4 +2000,83 @@ const getStatisticsData = async (browserParam: any) => {
   }
 
 }
+
+const loginSuccess = async (loginPage: any, requestParam: any, thit: any) => {
+  //将浏览器最小化
+  thit.browserWindow?.minimize();
+
+  //将软件窗口显示出来
+  thit.browserWindow?.show();
+
+  log.info("登录成功");
+
+  //保存cookies
+  const cookies = await loginPage.cookies();
+
+  //过期时间为10天后
+  let expires = Date.now() / 1000 + 10 * 24 * 60 * 60;
+
+  //将.之后的去掉
+  expires = Math.floor(expires);
+
+  const persistentCookies = cookies.map(cookie => ({
+    ...cookie,
+    expires: expires
+  }));
+
+  let cookieDir = path.join(app.getPath("appData"), "qianniu-crawler-cookie");
+
+  if (!fs.existsSync(cookieDir)) {
+    fs.mkdirSync(cookieDir);
+  }
+
+  let dirName = requestParam.username.replace(":", "") + ".json";
+
+  //拼接上用户名
+  cookieDir = path.join(cookieDir, dirName);
+
+  //写入文件
+  fs.writeFileSync(cookieDir, JSON.stringify(persistentCookies, null, 2));
+
+  accountLoginInfoMap.set(requestParam.username, {
+    loginTime: new Date().getTime()
+  });
+
+  thit.browserWindow?.webContents.send("get-login-info", accountLoginInfoMap);
+
+  //关闭当前所有页面
+  try {
+    let pages = await loginPage.browser().pages();
+
+    //等待1s
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    pages.forEach(async (item: any) => {
+      await item.close();
+    });
+  } catch (e: any) {
+    log.error("自动关闭失败", e);
+  }
+
+
+}
+
+// 捕获全局的 uncaughtException 错误
+process.on('uncaughtException', (error) => {
+  // console.error('捕获到未处理的错误:', error);
+  // 可以选择在这里处理错误，比如日志记录，或者显示自定义错误信息
+  // 但防止默认弹框：
+  // 阻止 Electron 默认的错误弹框显示
+  // 注意：在生产环境中，最好不要继续抛出异常，避免导致应用崩溃
+  // 可以选择退出或记录错误
+  // app.exit(1); // 可以退出应用
+  log.error("捕获到未处理的错误:", error);
+
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+
+  log.error("捕获到未处理的错误:", reason);
+
+});
+
 export default PrimaryWindow;

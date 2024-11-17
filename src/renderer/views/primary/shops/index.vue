@@ -286,7 +286,9 @@ const batchLoginLogoutAccount = () => {
 	}
 
 	for (let i = 0; i < activeList.length; i++) {
-		getElectronApi().shopsLogin(JSON.stringify(activeList[i]));
+		setTimeout(() => {
+			getElectronApi().shopsLogin(JSON.stringify(activeList[i]));
+		}, i * 200);
 	}
 
 };
