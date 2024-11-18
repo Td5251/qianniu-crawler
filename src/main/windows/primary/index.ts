@@ -271,7 +271,8 @@ class PrimaryWindow extends WindowBase {
         await loginPage.click('.password-login');
 
         try {
-          await loginPage.waitForNavigation();
+          // await loginPage.waitForNavigation();
+          await loginPage.waitForNavigation({ waitUntil: 'networkidle0' });
         } catch (e) {
           log.error("等待超时");
         }
@@ -493,7 +494,7 @@ class PrimaryWindow extends WindowBase {
 
 
         //爬取对应数据 并对数据进行解析
-        let { shopName, operationData, wanxiangtaiData, otherIndicatorsData } = await getOperationAndWanXiangTaiData(browser) as any
+        let { shopName, shopsScore, shopsData, operationData, wanxiangtaiData, otherIndicatorsData } = await getOperationAndWanXiangTaiData(browser) as any
         let goodsData = await getGoodsData(browser) as any
         let depositData = await getDepositData(browser)
         let aggregateBalance = await getAggregateBalanceData(browser)
@@ -505,6 +506,8 @@ class PrimaryWindow extends WindowBase {
           remark: requestParam.remark,
           crawlerTime: new Date().getTime(),
           shopName: shopName,
+          shopsScore: shopsScore,
+          ...shopsData,
           ...operationData,
           ...wanxiangtaiData,
           ...otherIndicatorsData,
@@ -657,12 +660,57 @@ const getOperationAndWanXiangTaiData = async (browserParam: any) => {
   let homePage = await browserParam.newPage();
   homePage.goto("https://myseller.taobao.com/home.htm/QnworkbenchHome/");
 
+  //评分
+  let shopsScore;
+  try {
+    //等待加载完毕
+    await homePage.waitForNavigation();
+
+    shopsScore = await homePage.evaluate(() => {
+      let scoreEle = document.querySelector('[class*="shopCard_npsValue"]') as any
+
+      return scoreEle?.innerText || "获取失败";
+    });
+  } catch (e: any) {
+    log.error("获取店铺评分失败", e);
+
+    shopsScore = "网络异常 请重新获取";
+  }
+
+  //店铺数据
+  let shopsData;
+  try {
+    shopsData = await homePage.evaluate(() => {
+      let shopsDataEle = document.querySelectorAll('[class*="shopCard_scoreValue"]') as any
+
+      let babyBuality = shopsDataEle[0]?.innerText || "获取失败";
+      let logisticsSpeed = shopsDataEle[1]?.innerText || "获取失败";
+      let serviceGuarantee = shopsDataEle[2]?.innerText || "获取失败";
+
+      return {
+        babyBuality: babyBuality,
+        logisticsSpeed: logisticsSpeed,
+        serviceGuarantee: serviceGuarantee
+      }
+    });
+  } catch (e: any) {
+    log.error("获取店铺数据失败", e);
+
+    shopsScore = {
+      babyBuality: "获取失败",
+      logisticsSpeed: "获取失败",
+      serviceGuarantee: "获取失败"
+    }
+  }
+
+
+
+
   //获取店铺名称
   let shopName;
 
   try {
     //等待加载完毕
-    await homePage.waitForNavigation();
 
     //document.querySelectorAll('[class*="skip"]');
 
@@ -854,39 +902,39 @@ const getOperationAndWanXiangTaiData = async (browserParam: any) => {
       let item = temp[i];
 
       if (item.includes("访客数")) {
-        visitor = temp[i + 1] + " / " + temp[i + 2].replace("昨日", "");
+        visitor = temp[i + 1] + "/" + temp[i + 2].replace("昨日", "");
       }
 
       if (item.includes("支付子订单数")) {
-        order = temp[i + 1] + " / " + temp[i + 2].replace("昨日", "");
+        order = temp[i + 1] + "/" + temp[i + 2].replace("昨日", "");
       }
 
       if (item.includes("支付金额")) {
-        amount = temp[i + 1] + " / " + temp[i + 2].replace("昨日", "");
+        amount = temp[i + 1] + "/" + temp[i + 2].replace("昨日", "");
       }
 
       if (item.includes("万相台账户余额")) {
-        wxtBalance = temp[i + 1] + " / " + temp[i + 2].replace("昨日", "");
+        wxtBalance = temp[i + 1] + "/" + temp[i + 2].replace("昨日", "");
       }
 
       if (item.includes("万相台花费")) {
-        wxtCharge = temp[i + 1] + " / " + temp[i + 2].replace("昨日", "");
+        wxtCharge = temp[i + 1] + "/" + temp[i + 2].replace("昨日", "");
       }
 
       if (item.includes("万相台展现量")) {
-        wxtDisplay = temp[i + 1] + " / " + temp[i + 2].replace("昨日", "");
+        wxtDisplay = temp[i + 1] + "/" + temp[i + 2].replace("昨日", "");
       }
 
       if (item.includes("万相台点击量")) {
-        wxtClick = temp[i + 1] + " / " + temp[i + 2].replace("昨日", "");
+        wxtClick = temp[i + 1] + "/" + temp[i + 2].replace("昨日", "");
       }
 
       if (item.includes("万相台成交金额")) {
-        wxtTransaction = temp[i + 1] + " / " + temp[i + 2].replace("昨日", "");
+        wxtTransaction = temp[i + 1] + "/" + temp[i + 2].replace("昨日", "");
       }
 
       if (item.includes("万相台投产比")) {
-        wxtProfit = temp[i + 1] + " / " + temp[i + 2].replace("昨日", "");
+        wxtProfit = temp[i + 1] + "/" + temp[i + 2].replace("昨日", "");
       }
     }
 
@@ -1051,24 +1099,24 @@ const getOperationAndWanXiangTaiData = async (browserParam: any) => {
       let item = temp[i];
 
       if (item.includes("加购人数")) {
-        addToCart = temp[i + 1] + " / " + temp[i + 2].replace("昨日", "");
+        addToCart = temp[i + 1] + "/" + temp[i + 2].replace("昨日", "");
       }
 
 
       if (item.includes("支付转化率")) {
-        conversionRate = temp[i + 1] + " / " + temp[i + 2].replace("昨日", "");
+        conversionRate = temp[i + 1] + "/" + temp[i + 2].replace("昨日", "");
       }
 
       if (item.includes("浏览量")) {
-        pageViews = temp[i + 1] + " / " + temp[i + 2].replace("昨日", "");
+        pageViews = temp[i + 1] + "/" + temp[i + 2].replace("昨日", "");
       }
 
       if (item.includes("支付买家数")) {
-        buyerNumber = temp[i + 1] + " / " + temp[i + 2].replace("昨日", "");
+        buyerNumber = temp[i + 1] + "/" + temp[i + 2].replace("昨日", "");
       }
 
       if (item.includes("客单价")) {
-        unitPrice = temp[i + 1] + " / " + temp[i + 2].replace("昨日", "");
+        unitPrice = temp[i + 1] + "/" + temp[i + 2].replace("昨日", "");
       }
 
       if (item.includes("加购商品数")) {
@@ -1112,8 +1160,235 @@ const getOperationAndWanXiangTaiData = async (browserParam: any) => {
     }
   }
 
+  //周数据 https://sycm.taobao.com/portal/home.htm?activeKey=operator&dateType=week
+
+  try {
+
+    homePage.goto("https://sycm.taobao.com/portal/home.htm?activeKey=operator&dateType=week");
+    //等待页面加载完成
+    await homePage.waitForNavigation();
+
+    //等待.ebase-frame-header-text元素加载完毕
+    await homePage.waitForSelector(".ebase-frame-header-text");
+
+    await homePage.evaluate(() => {
+
+      let ele = document.querySelector(".ebase-frame-header-text") as any;
+      let text = ele?.innerText || "";
+
+      if ("返回旧版" == text) {
+        ele.click();
+      }
+    })
+
+    //等待页面加载完成
+    await homePage.waitForNavigation();
+
+    //等待oui-floor-nav-floor1元素加载完毕
+    await homePage.waitForSelector(".oui-floor-nav-floor1");
+
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    //点击 .oui-floor-nav-floor1
+    await homePage.evaluate(() => {
+      let ele = document.querySelector(".oui-floor-nav-floor1 a") as any;
+
+      ele.click();
+    });
+
+    //等待 .next-tabs-nav 加载完毕
+    await homePage.waitForSelector(".oui-index-cell");
+
+    // //等待1s
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    let data1 = await homePage.evaluate(() => {
+
+      let eleList = document.querySelectorAll(".oui-index-cell-indexValue") as any;
+
+      let data: any = [];
+
+      for (let i = 0; i < eleList.length; i++) {
+        let ele = eleList[i];
+        let key = ele?.previousElementSibling.innerText || ""
+        let value = ele?.innerText || ""
+        data.push({
+          key: key,
+          value: value
+        });
+      }
+
+      return data;
+    });
+
+    //等待.index-page-arrow元素加载完毕
+    await homePage.waitForSelector(".alife-one-design-sycm-indexes-trend-index-container .anticon-angle-right");
+
+    //点击
+    await homePage.click(".alife-one-design-sycm-indexes-trend-index-container .anticon-angle-right");
+
+    //等待.index-page-arrow元素加载完毕
+    await homePage.waitForSelector(".alife-one-design-sycm-indexes-trend-index-container .anticon-angle-right");
+
+    //点击第二个.index-page-arrow
+    await homePage.click(".alife-one-design-sycm-indexes-trend-index-container .anticon-angle-right");
+    //等待1s
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    let data3 = await homePage.evaluate(() => {
+
+      let eleList = document.querySelectorAll(".oui-index-cell-indexValue") as any;
+
+      let data: any = [];
+
+      for (let i = 0; i < eleList.length; i++) {
+        let ele = eleList[i];
+        let key = ele?.previousElementSibling.innerText || ""
+        let value = ele?.innerText || ""
+        data.push({
+          key: key,
+          value: value
+        });
+      }
+
+      return data;
+    });
+
+    for (let i = 0; i < data1.length; i++) {
+      let item = data1[i];
+
+      if (item.key.includes("支付金额")) {
+        wanxiangtaiData.amount += "/" + item.value;
+      }
+
+      if (item.key.includes("访客数")) {
+        wanxiangtaiData.visitor += "/" + item.value;
+      }
+    }
+
+    for (let i = 0; i < data3.length; i++) {
+      let item = data3[i];
+
+      if (item.key.includes("支付子订单数")) {
+        wanxiangtaiData.order += "/" + item.value;
+      }
+    }
+
+  } catch (e: any) {
+    log.error("获取周数据失败");
+    log.error(e.message);
+    wanxiangtaiData.amount += "/获取失败";
+    wanxiangtaiData.visitor += "/获取失败";
+
+  }
+
+  //月数据 https://sycm.taobao.com/portal/home.htm?activeKey=operator&dateType=month
+  try {
+
+    homePage.goto("https://sycm.taobao.com/portal/home.htm?activeKey=operator&dateType=month");
+    //等待页面加载完成
+    await homePage.waitForNavigation();
+
+    //等待oui-floor-nav-floor1元素加载完毕
+    await homePage.waitForSelector(".oui-floor-nav-floor1");
+
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    //点击 .oui-floor-nav-floor1
+    await homePage.evaluate(() => {
+      let ele = document.querySelector(".oui-floor-nav-floor1 a") as any;
+
+      ele.click();
+    });
+
+    //等待 .next-tabs-nav 加载完毕
+    await homePage.waitForSelector(".oui-index-cell");
+
+    // //等待1s
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    let data1 = await homePage.evaluate(() => {
+
+      let eleList = document.querySelectorAll(".oui-index-cell-indexValue") as any;
+
+      let data: any = [];
+
+      for (let i = 0; i < eleList.length; i++) {
+        let ele = eleList[i];
+        let key = ele?.previousElementSibling.innerText || ""
+        let value = ele?.innerText || ""
+        data.push({
+          key: key,
+          value: value
+        });
+      }
+
+      return data;
+    });
+
+    //等待.index-page-arrow元素加载完毕
+    await homePage.waitForSelector(".alife-one-design-sycm-indexes-trend-index-container .anticon-angle-right");
+
+    //点击
+    await homePage.click(".alife-one-design-sycm-indexes-trend-index-container .anticon-angle-right");
+
+    //等待.index-page-arrow元素加载完毕
+    await homePage.waitForSelector(".alife-one-design-sycm-indexes-trend-index-container .anticon-angle-right");
+
+    //点击第二个.index-page-arrow
+    await homePage.click(".alife-one-design-sycm-indexes-trend-index-container .anticon-angle-right");
+    //等待1s
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    let data3 = await homePage.evaluate(() => {
+
+      let eleList = document.querySelectorAll(".oui-index-cell-indexValue") as any;
+
+      let data: any = [];
+
+      for (let i = 0; i < eleList.length; i++) {
+        let ele = eleList[i];
+        let key = ele?.previousElementSibling.innerText || ""
+        let value = ele?.innerText || ""
+        data.push({
+          key: key,
+          value: value
+        });
+      }
+
+      return data;
+    });
+
+    for (let i = 0; i < data1.length; i++) {
+      let item = data1[i];
+
+      if (item.key.includes("支付金额")) {
+        wanxiangtaiData.amount += "/" + item.value;
+      }
+
+      if (item.key.includes("访客数")) {
+        wanxiangtaiData.visitor += "/" + item.value;
+      }
+    }
+
+    for (let i = 0; i < data3.length; i++) {
+      let item = data3[i];
+
+      if (item.key.includes("支付子订单数")) {
+        wanxiangtaiData.order += "/" + item.value;
+      }
+    }
+
+  } catch (e: any) {
+    log.error("获取月数据失败");
+    log.error(e.message);
+    wanxiangtaiData.amount += "/获取失败";
+    wanxiangtaiData.visitor += "/获取失败";
+
+  }
+
   return {
     shopName: shopName,
+    shopsScore: shopsScore,
+    shopsData: shopsData,
     operationData: operationData,
     wanxiangtaiData: wanxiangtaiData,
     otherIndicatorsData: otherIndicatorsData

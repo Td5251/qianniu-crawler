@@ -117,7 +117,38 @@ const columns: any = [
 		align: "center",
 		width: 120
 	},
-
+	//综合体验分
+	{
+		title: "综合体验分",
+		dataIndex: "shopsScore",
+		key: "shopsScore",
+		align: "center",
+		width: 120
+	},
+	//宝贝质量
+	{
+		title: "宝贝质量",
+		dataIndex: "babyBuality",
+		key: "babyBuality",
+		align: "center",
+		width: 120
+	},
+	//物流速度
+	{
+		title: "物流速度",
+		dataIndex: "logisticsSpeed",
+		key: "logisticsSpeed",
+		align: "center",
+		width: 120
+	},
+	//服务保障
+	{
+		title: "服务保障",
+		dataIndex: "serviceGuarantee",
+		key: "serviceGuarantee",
+		align: "center",
+		width: 120
+	},
 	//聚合账户余额
 	{
 		title: "聚合账户余额",
@@ -192,7 +223,7 @@ const columns: any = [
 	},
 	//访客
 	{
-		title: "今/昨访客",
+		title: "今/昨/周/月访客",
 		dataIndex: "visitor",
 		key: "visitor",
 		align: "center",
@@ -200,11 +231,19 @@ const columns: any = [
 	},
 	//支付金额
 	{
-		title: "今/昨金额",
+		title: "今/昨/周/月金额",
 		dataIndex: "amount",
 		key: "amount",
 		align: "center",
-		width: 120
+		width: 350
+	},
+	//订单
+	{
+		title: "今/昨/周/月订单",
+		dataIndex: "order",
+		key: "order",
+		align: "center",
+		width: 150
 	},
 	//万相台余额
 	{
@@ -260,14 +299,6 @@ const columns: any = [
 		title: "今/昨加购人数",
 		dataIndex: "addToCart",
 		key: "addToCart",
-		align: "center",
-		width: 120
-	},
-	//订单
-	{
-		title: "今/昨订单",
-		dataIndex: "order",
-		key: "order",
 		align: "center",
 		width: 120
 	},
