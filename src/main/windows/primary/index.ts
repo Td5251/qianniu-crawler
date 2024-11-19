@@ -494,27 +494,27 @@ class PrimaryWindow extends WindowBase {
 
 
         //爬取对应数据 并对数据进行解析
-        // let { shopName, shopsScore, shopsData, operationData, wanxiangtaiData, otherIndicatorsData } = await getOperationAndWanXiangTaiData(browser) as any
-        // let goodsData = await getGoodsData(browser) as any
-        // let depositData = await getDepositData(browser)
-        // let aggregateBalance = await getAggregateBalanceData(browser)
-        // let shopLevel = await getShopLevelData(browser);
+        let { shopName, shopsScore, shopsData, operationData, wanxiangtaiData, otherIndicatorsData } = await getOperationAndWanXiangTaiData(browser) as any
+        let goodsData = await getGoodsData(browser) as any
+        let depositData = await getDepositData(browser)
+        let aggregateBalance = await getAggregateBalanceData(browser)
+        let shopLevel = await getShopLevelData(browser);
         let statisticsData = await getStatisticsData(browser) as any;
 
         let responseInfo = {
           id: requestParam.id,
           remark: requestParam.remark,
           crawlerTime: new Date().getTime(),
-          // shopName: shopName,
-          // shopsScore: shopsScore,
-          // ...shopsData,
-          // ...operationData,
-          // ...wanxiangtaiData,
-          // ...otherIndicatorsData,
-          // ...depositData,
-          // ...goodsData,
-          // aggregateBalance: aggregateBalance,
-          // shopLevel: shopLevel,
+          shopName: shopName,
+          shopsScore: shopsScore,
+          ...shopsData,
+          ...operationData,
+          ...wanxiangtaiData,
+          ...otherIndicatorsData,
+          ...depositData,
+          ...goodsData,
+          aggregateBalance: aggregateBalance,
+          shopLevel: shopLevel,
           ...statisticsData,
 
           status: "success",
