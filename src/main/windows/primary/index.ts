@@ -494,27 +494,27 @@ class PrimaryWindow extends WindowBase {
 
 
         //爬取对应数据 并对数据进行解析
-        let { shopName, shopsScore, shopsData, operationData, wanxiangtaiData, otherIndicatorsData } = await getOperationAndWanXiangTaiData(browser) as any
-        let goodsData = await getGoodsData(browser) as any
-        let depositData = await getDepositData(browser)
-        let aggregateBalance = await getAggregateBalanceData(browser)
-        let shopLevel = await getShopLevelData(browser);
+        // let { shopName, shopsScore, shopsData, operationData, wanxiangtaiData, otherIndicatorsData } = await getOperationAndWanXiangTaiData(browser) as any
+        // let goodsData = await getGoodsData(browser) as any
+        // let depositData = await getDepositData(browser)
+        // let aggregateBalance = await getAggregateBalanceData(browser)
+        // let shopLevel = await getShopLevelData(browser);
         let statisticsData = await getStatisticsData(browser) as any;
 
         let responseInfo = {
           id: requestParam.id,
           remark: requestParam.remark,
           crawlerTime: new Date().getTime(),
-          shopName: shopName,
-          shopsScore: shopsScore,
-          ...shopsData,
-          ...operationData,
-          ...wanxiangtaiData,
-          ...otherIndicatorsData,
-          ...depositData,
-          ...goodsData,
-          aggregateBalance: aggregateBalance,
-          shopLevel: shopLevel,
+          // shopName: shopName,
+          // shopsScore: shopsScore,
+          // ...shopsData,
+          // ...operationData,
+          // ...wanxiangtaiData,
+          // ...otherIndicatorsData,
+          // ...depositData,
+          // ...goodsData,
+          // aggregateBalance: aggregateBalance,
+          // shopLevel: shopLevel,
           ...statisticsData,
 
           status: "success",
@@ -1932,7 +1932,7 @@ const getStatisticsData = async (browserParam: any) => {
     for (let i = 0; i < data1.length; i++) {
       let item = data1[i];
 
-      if (item.key.includes("支付金额")) {
+      if (item.key == "支付金额") {
         payAmount = item.value;
         netAmount = item.value;
       }
@@ -2022,10 +2022,6 @@ const getStatisticsData = async (browserParam: any) => {
     for (let i = 0; i < data2.length; i++) {
       let item = data2[i];
 
-      if (item.key.includes("支付金额")) {
-        payAmount = item.value;
-        netAmount = item.value;
-      }
 
       if (item.key.includes("成功退款金额")) {
         refund = item.value;
@@ -2111,11 +2107,6 @@ const getStatisticsData = async (browserParam: any) => {
 
     for (let i = 0; i < data3.length; i++) {
       let item = data3[i];
-
-      if (item.key.includes("支付金额")) {
-        payAmount = item.value;
-        netAmount = item.value;
-      }
 
       if (item.key.includes("成功退款金额")) {
         refund = item.value;
