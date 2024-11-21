@@ -63,6 +63,12 @@ const handleOk = () => {
 		return;
 	}
 
+	//requestParam.value.defaultChromePath 包含" 时
+	if (requestParam.value.defaultChromePath.includes('"')) {
+		//将"替换成空
+		requestParam.value.defaultChromePath = requestParam.value.defaultChromePath.replaceAll(/\"/g, "");
+	}
+
 	if (requestParam.value.maxOpenBrowserNumber > 20) {
 		//提示线程数过大可能导致系统卡顿 是否继续
 		$td.Modal.confirm({
