@@ -14,7 +14,7 @@
 		<div class="bottom">
 			<div class="content">
 
-				<a-table :columns="columns" :data-source="bodyData" :scroll="{ x: 1000, y: 300 }" :pagination="false">
+				<a-table :columns="columns" :data-source="bodyData" :scroll="{ x: 1000, y: 520 }" :pagination="false">
 					<template #bodyCell="{ column, index, record }">
 						<template v-if="column.key === 'operation'">
 							<a-button @click="getCurrentData(record)" size="small"

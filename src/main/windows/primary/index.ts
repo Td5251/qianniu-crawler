@@ -50,8 +50,8 @@ class PrimaryWindow extends WindowBase {
     });
 
     this.browserWindow?.maximize();
-    // this.openRouter("/login");
-    this.openRouter("/primary");
+    this.openRouter("/login");
+    // this.openRouter("/primary");
 
     try {
 
