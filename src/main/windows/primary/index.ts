@@ -13,14 +13,451 @@ let systemConfig: any = {
   maxOpenBrowserNumber: 15,
   defaultChromePath: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
 }
-
 let accountLoginInfoMap = new Map();
-let shopsInfoMap = new Map();
-let retrievingFlagMap = new Map();
-
-let currentOpenBrowserNumber = 0;
 
 
+let allShopsInfo = [];
+
+
+class SafeQueue<T> {
+  private items: T[] = [];
+  private lock: boolean = false;
+  private currentTask: T | null = null;
+  private taskCount: number = 0; // 当前正在执行的任务数量
+
+  /**
+   * 入队操作
+   * @param element - 要添加到队列中的元素
+   * @returns Promise<void>
+   */
+  async enqueue(element: T): Promise<void> {
+    return new Promise<void>((resolve) => {
+      const operation = () => {
+        if (this.lock) {
+          setTimeout(operation, 10); // 如果队列被锁定，延迟尝试
+        } else {
+          this.lock = true; // 锁定队列
+          this.items.push(element);
+          this.lock = false; // 解锁队列
+          resolve();
+        }
+      };
+      operation();
+    });
+  }
+
+  /**
+   * 出队操作
+   * @returns Promise<T> - 返回队列头部的元素
+   * @throws 如果队列为空
+   */
+  async dequeue(): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      const operation = () => {
+        if (this.lock) {
+          setTimeout(operation, 10); // 如果队列被锁定，延迟尝试
+        } else {
+          this.lock = true; // 锁定队列
+          if (this.items.length === 0) {
+            this.lock = false;
+            reject(new Error("Queue is empty"));
+          } else {
+            const item = this.items.shift()!;
+            this.lock = false; // 解锁队列
+            resolve(item);
+          }
+        }
+      };
+      operation();
+    });
+  }
+
+  /**
+   * 检查队列是否为空
+   * @returns boolean - 队列是否为空
+   */
+  isEmpty(): boolean {
+    return this.items.length === 0;
+  }
+
+  /**
+   * 获取队列大小
+   * @returns number - 队列中元素的数量
+   */
+  size(): number {
+    return this.items.length;
+  }
+
+  /**
+   * 打印队列内容
+   */
+  print(): void {
+    console.log(this.items);
+  }
+
+  /**
+   * 清空队列
+   */
+  async clear(): Promise<void> {
+    return new Promise<void>((resolve) => {
+      const operation = () => {
+        if (this.lock) {
+          setTimeout(operation, 10); // 如果队列被锁定，延迟尝试
+        } else {
+          this.lock = true; // 锁定队列
+          this.items = [];
+          this.lock = false; // 解锁队列
+          resolve();
+        }
+      };
+      operation();
+    });
+  }
+
+  /**
+   * 获取当前正在执行的任务
+   * @returns Promise<T | null> - 当前任务，或者 null 如果没有任务
+   */
+  async getCurrentTask(): Promise<T | null> {
+    return new Promise<T | null>((resolve) => {
+      const operation = () => {
+        if (this.lock) {
+          setTimeout(operation, 10); // 如果队列被锁定，延迟尝试
+        } else {
+          this.lock = true; // 锁定队列
+          const task = this.currentTask;
+          this.lock = false; // 解锁队列
+          resolve(task);
+        }
+      };
+      operation();
+    });
+  }
+
+  /**
+   * 设置当前正在执行的任务
+   * @param task - 要设置的任务
+   * @returns Promise<void>
+   */
+  async setCurrentTask(task: T | null): Promise<void> {
+    return new Promise<void>((resolve) => {
+      const operation = () => {
+        if (this.lock) {
+          setTimeout(operation, 10); // 如果队列被锁定，延迟尝试
+        } else {
+          this.lock = true; // 锁定队列
+          this.currentTask = task;
+          this.lock = false; // 解锁队列
+          resolve();
+        }
+      };
+      operation();
+    });
+  }
+
+  /**
+   * 增加当前任务数量
+   * @returns Promise<void>
+   */
+  async incrementTaskCount(): Promise<void> {
+    return new Promise<void>((resolve) => {
+      const operation = () => {
+        if (this.lock) {
+          setTimeout(operation, 10); // 如果队列被锁定，延迟尝试
+        } else {
+          this.lock = true; // 锁定队列
+          this.taskCount++;
+          this.lock = false; // 解锁队列
+          resolve();
+        }
+      };
+      operation();
+    });
+  }
+
+  /**
+   * 减少当前任务数量
+   * @returns Promise<void>
+   */
+  async decrementTaskCount(): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      const operation = () => {
+        if (this.lock) {
+          setTimeout(operation, 10); // 如果队列被锁定，延迟尝试
+        } else {
+          this.lock = true; // 锁定队列
+          if (this.taskCount > 0) {
+            this.taskCount--;
+            this.lock = false; // 解锁队列
+            resolve();
+          } else {
+            this.lock = false;
+            // reject(new Error("Task count is already 0"));
+          }
+        }
+      };
+      operation();
+    });
+  }
+
+  /**
+   * 获取当前任务数量
+   * @returns number - 当前任务数量
+   */
+  getTaskCount(): number {
+    return this.taskCount;
+  }
+}
+
+class SafeMap<K, V> {
+  private map: Map<K, V> = new Map();
+  private lock: boolean = false;
+
+  /**
+   * 设置键值对
+   * @param key - 键
+   * @param value - 值
+   * @returns Promise<void>
+   */
+  async set(key: K, value: V): Promise<void> {
+    return new Promise<void>((resolve) => {
+      const operation = () => {
+        if (this.lock) {
+          setTimeout(operation, 10); // 如果Map被锁定，延迟尝试
+        } else {
+          this.lock = true; // 锁定Map
+          this.map.set(key, value);
+          this.lock = false; // 解锁Map
+          resolve();
+        }
+      };
+      operation();
+    });
+  }
+
+  /**
+   * 获取键对应的值
+   * @param key - 键
+   * @returns Promise<V | undefined> - 值，如果键不存在则返回undefined
+   */
+  async get(key: K): Promise<V | undefined> {
+    return new Promise<V | undefined>((resolve) => {
+      const operation = () => {
+        if (this.lock) {
+          setTimeout(operation, 10); // 如果Map被锁定，延迟尝试
+        } else {
+          this.lock = true; // 锁定Map
+          const value = this.map.get(key);
+          this.lock = false; // 解锁Map
+          resolve(value);
+        }
+      };
+      operation();
+    });
+  }
+
+  /**
+   * 删除键
+   * @param key - 键
+   * @returns Promise<boolean> - 如果键存在并被删除返回true，否则返回false
+   */
+  async delete(key: K): Promise<boolean> {
+    return new Promise<boolean>((resolve) => {
+      const operation = () => {
+        if (this.lock) {
+          setTimeout(operation, 10); // 如果Map被锁定，延迟尝试
+        } else {
+          this.lock = true; // 锁定Map
+          const result = this.map.delete(key);
+          this.lock = false; // 解锁Map
+          resolve(result);
+        }
+      };
+      operation();
+    });
+  }
+
+  /**
+   * 检查键是否存在
+   * @param key - 键
+   * @returns Promise<boolean> - 如果键存在返回true，否则返回false
+   */
+  async has(key: K): Promise<boolean> {
+    return new Promise<boolean>((resolve) => {
+      const operation = () => {
+        if (this.lock) {
+          setTimeout(operation, 10); // 如果Map被锁定，延迟尝试
+        } else {
+          this.lock = true; // 锁定Map
+          const exists = this.map.has(key);
+          this.lock = false; // 解锁Map
+          resolve(exists);
+        }
+      };
+      operation();
+    });
+  }
+
+  /**
+   * 清空Map
+   * @returns Promise<void>
+   */
+  async clear(): Promise<void> {
+    return new Promise<void>((resolve) => {
+      const operation = () => {
+        if (this.lock) {
+          setTimeout(operation, 10); // 如果Map被锁定，延迟尝试
+        } else {
+          this.lock = true; // 锁定Map
+          this.map.clear();
+          this.lock = false; // 解锁Map
+          resolve();
+        }
+      };
+      operation();
+    });
+  }
+
+  /**
+   * 获取Map的大小
+   * @returns Promise<number> - Map中键值对的数量
+   */
+  async size(): Promise<number> {
+    return new Promise<number>((resolve) => {
+      const operation = () => {
+        if (this.lock) {
+          setTimeout(operation, 10); // 如果Map被锁定，延迟尝试
+        } else {
+          this.lock = true; // 锁定Map
+          const size = this.map.size;
+          this.lock = false; // 解锁Map
+          resolve(size);
+        }
+      };
+      operation();
+    });
+  }
+
+  /**
+   * 获取所有键值对
+   * @returns Promise<[K, V][]> - 键值对数组
+   */
+  async entries(): Promise<[K, V][]> {
+    return new Promise<[K, V][]>((resolve) => {
+      const operation = () => {
+        if (this.lock) {
+          setTimeout(operation, 10); // 如果Map被锁定，延迟尝试
+        } else {
+          this.lock = true; // 锁定Map
+          const entries = Array.from(this.map.entries());
+          this.lock = false; // 解锁Map
+          resolve(entries);
+        }
+      };
+      operation();
+    });
+  }
+}
+
+class SafeCounter {
+  private count: number = 0;
+  private lock: boolean = false;
+
+  /**
+   * 增加计数器值
+   * @param value - 增加的值，默认为1
+   * @returns Promise<void>
+   */
+  async increment(value: number = 1): Promise<void> {
+    return new Promise<void>((resolve) => {
+      const operation = () => {
+        if (this.lock) {
+          setTimeout(operation, 10); // 如果计数器被锁定，延迟尝试
+        } else {
+          this.lock = true; // 锁定计数器
+          this.count += value;
+          this.lock = false; // 解锁计数器
+          resolve();
+        }
+      };
+      operation();
+    });
+  }
+
+  /**
+   * 减少计数器值
+   * @param value - 减少的值，默认为1
+   * @returns Promise<void>
+   */
+  async decrement(value: number = 1): Promise<void> {
+    return new Promise<void>((resolve) => {
+      const operation = () => {
+        if (this.lock) {
+          setTimeout(operation, 10); // 如果计数器被锁定，延迟尝试
+        } else {
+          this.lock = true; // 锁定计数器
+          this.count -= value;
+          this.lock = false; // 解锁计数器
+          resolve();
+        }
+      };
+      operation();
+    });
+  }
+
+  /**
+   * 获取当前计数器值
+   * @returns Promise<number>
+   */
+  async getValue(): Promise<number> {
+    return new Promise<number>((resolve) => {
+      const operation = () => {
+        if (this.lock) {
+          setTimeout(operation, 10); // 如果计数器被锁定，延迟尝试
+        } else {
+          this.lock = true; // 锁定计数器
+          const value = this.count;
+          this.lock = false; // 解锁计数器
+          resolve(value);
+        }
+      };
+      operation();
+    });
+  }
+
+  /**
+   * 重置计数器值
+   * @param value - 重置为的值，默认为0
+   * @returns Promise<void>
+   */
+  async reset(value: number = 0): Promise<void> {
+    return new Promise<void>((resolve) => {
+      const operation = () => {
+        if (this.lock) {
+          setTimeout(operation, 10); // 如果计数器被锁定，延迟尝试
+        } else {
+          this.lock = true; // 锁定计数器
+          this.count = value;
+          this.lock = false; // 解锁计数器
+          resolve();
+        }
+      };
+      operation();
+    });
+  }
+}
+
+
+
+
+let shopsInfoMap = new SafeMap<string, any>();
+let retrievingFlagMap = new SafeMap<string, any>();
+let currentOpenBrowserNumber = new SafeCounter();
+
+
+
+
+const queue = new SafeQueue<any>();
 
 class PrimaryWindow extends WindowBase {
   constructor() {
@@ -301,77 +738,6 @@ class PrimaryWindow extends WindowBase {
           log.info("登录成功,当前地址：" + currentUrl);
           loginSuccess(loginPage, requestParam, thit);
         }
-
-        //监听跳转后的地址
-        // loginPage.on("response", async (response: any) => {
-        //   //拿到当前地址
-        //   let currentUrl = response.url();
-
-        //   log.info("当前地址：" + currentUrl);
-
-
-        //   // if (currentUrl == 'https://gm.mmstat.com/aes.1.1') {
-        //   if (currentUrl == 'https://g.alicdn.com/tb/tracker/index.js') {
-
-        //     //将浏览器最小化
-        //     thit.browserWindow?.minimize();
-
-        //     log.info("登录成功");
-
-        //     //保存cookies
-        //     const cookies = await loginPage.cookies();
-
-        //     //过期时间为10天后
-        //     let expires = Date.now() / 1000 + 10 * 24 * 60 * 60;
-
-        //     //将.之后的去掉
-        //     expires = Math.floor(expires);
-
-        //     const persistentCookies = cookies.map(cookie => ({
-        //       ...cookie,
-        //       expires: expires
-        //     }));
-
-        //     let cookieDir = path.join(app.getPath("appData"), "qianniu-crawler-cookie");
-
-        //     if (!fs.existsSync(cookieDir)) {
-        //       fs.mkdirSync(cookieDir);
-        //     }
-
-        //     let dirName = requestParam.username.replace(":", "") + ".json";
-
-        //     //拼接上用户名
-        //     cookieDir = path.join(cookieDir, dirName);
-
-        //     //写入文件
-        //     fs.writeFileSync(cookieDir, JSON.stringify(persistentCookies, null, 2));
-
-        //     accountLoginInfoMap.set(requestParam.username, {
-        //       loginTime: new Date().getTime()
-        //     });
-
-        //     //关闭当前所有页面
-        //     try {
-        //       let pages = await loginPage.browser().pages();
-        //       pages.forEach(async (item: any) => {
-        //         await item.close();
-        //       });
-        //     } catch (e: any) {
-        //       log.error("自动关闭失败", e);
-        //     }
-
-        //     thit.browserWindow?.webContents.send("get-login-info", accountLoginInfoMap);
-        //   }
-
-        // });
-
-        // accountLoginInfoMap.set(requestParam.username, {
-        //   loginTime: new Date().getTime()
-        // });
-
-        // //将当前登录信息发送到渲染进程
-        // this.browserWindow?.webContents.send("get-login-info", accountLoginInfoMap);
-
       } catch (e: any) {
         log.error("登录error：");
         log.error(e);
@@ -388,17 +754,17 @@ class PrimaryWindow extends WindowBase {
 
     //获取店铺信息
     ipcMain.on("get-shops-info", async (event, param, flag) => {
+      let browser;
       let requestParam = JSON.parse(param);
       //如果正在获取中 则不再获取
-      let retrievingFlag = retrievingFlagMap.get(requestParam.id);
+      let retrievingFlag = await retrievingFlagMap.get(requestParam.id);
 
       if (retrievingFlag) {
         log.info(requestParam.id + " 正在获取中");
-
         return;
       }
 
-      retrievingFlagMap.set(requestParam.id, true);
+      await retrievingFlagMap.set(requestParam.id, true);
 
       log.info("-----------收到执行获取：" + requestParam.id + "店铺信息的任务-----------");
       try {
@@ -407,40 +773,48 @@ class PrimaryWindow extends WindowBase {
 
         if (!loginFlag) {
           requestParam.status = "not-login";
+          //删除retrievingFlagMap中的标识
+          await retrievingFlagMap.delete(requestParam.id);
           this.browserWindow?.webContents.send("get-shops-info", JSON.stringify(requestParam));
           return;
         }
 
         if (flag) {
-          let shopsInfo = shopsInfoMap.get(requestParam.id)
+          let shopsInfo = await shopsInfoMap.get(requestParam.id)
 
           if (shopsInfo) {
+            //删除获取中标识
+            await retrievingFlagMap.delete(requestParam.id);
             this.browserWindow?.webContents.send("get-shops-info", JSON.stringify(shopsInfo));
             return;
           }
         }
 
 
-
         systemConfig.maxOpenBrowserNumber = parseInt(systemConfig.maxOpenBrowserNumber);
         log.info("当前系统配置：", systemConfig);
-        log.info("当前打开浏览器数量：", currentOpenBrowserNumber);
+        log.info("当前打开浏览器数量：", await currentOpenBrowserNumber.getValue());
 
 
         //自旋锁等待浏览器数量小于最大值
-        while (currentOpenBrowserNumber >= systemConfig.maxOpenBrowserNumber) {
+        while (await currentOpenBrowserNumber.getValue() >= systemConfig.maxOpenBrowserNumber) {
           log.info(requestParam.id + "-等待中");
+          requestParam.status = "wait";
+          //将当前店铺信息发送到渲染进程
+          this.browserWindow?.webContents.send("get-shops-info", JSON.stringify(requestParam));
 
           await new Promise((resolve) => setTimeout(resolve, 1000));
         }
 
         log.info("开始执行获取：" + requestParam.id + "店铺信息的任务");
+        requestParam.status = "retrieving";
+        //将当前店铺信息发送到渲染进程
+        this.browserWindow?.webContents.send("get-shops-info", JSON.stringify(requestParam));
 
-        currentOpenBrowserNumber++;
-
+        currentOpenBrowserNumber.increment();
 
         //根据对应配置 创建一个隐藏的浏览器
-        let browser = await puppeteer.launch({
+        browser = await puppeteer.launch({
           // headless: isShowBrowser,
           headless: !systemConfig.isShowBrowser,
           args: [
@@ -465,7 +839,7 @@ class PrimaryWindow extends WindowBase {
 
         if (!isLogin) {
           //删除获取中标识
-          retrievingFlagMap.delete(requestParam.id);
+          await retrievingFlagMap.delete(requestParam.id);
 
           //删除登录信息
           accountLoginInfoMap.delete(requestParam.username);
@@ -484,6 +858,12 @@ class PrimaryWindow extends WindowBase {
             }
 
           } catch (e: any) {
+            console.log("登录失败");
+          } finally {
+            if (browser) {
+              await browser.close();
+              currentOpenBrowserNumber.decrement();
+            }
           }
 
           //响应信息
@@ -519,15 +899,7 @@ class PrimaryWindow extends WindowBase {
 
           status: "success",
         }
-        shopsInfoMap.set(requestParam.id, responseInfo);
-
-        //关闭浏览器
-        try {
-          await browser.close();
-        } catch (e: any) {
-          log.info("关闭浏览器失败");
-          log.info(e);
-        }
+        await shopsInfoMap.set(requestParam.id, responseInfo);
 
         //将当前店铺信息发送到渲染进程
         this.browserWindow?.webContents.send("get-shops-info", JSON.stringify(responseInfo));
@@ -535,13 +907,13 @@ class PrimaryWindow extends WindowBase {
 
         requestParam.status = "error";
         this.browserWindow?.webContents.send("get-shops-info", JSON.stringify(requestParam));
-
       } finally {
+        if (browser) {
+          await browser.close();
+          currentOpenBrowserNumber.decrement();
+        }
         let requestParam = JSON.parse(param);
-        //等待1秒 删除获取中标识
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        retrievingFlagMap.delete(requestParam.id);
-        currentOpenBrowserNumber--;
+        await retrievingFlagMap.delete(requestParam.id);
       }
     });
 
@@ -671,6 +1043,10 @@ const getOperationAndWanXiangTaiData = async (browserParam: any) => {
 
       return scoreEle?.innerText || "获取失败";
     });
+
+    //写一个正则拿到字符串中的所有数字包含小数
+    let score = shopsScore.match(/\d+(\.\d+)?/g);
+    shopsScore = score ? score[0] : "获取失败";
   } catch (e: any) {
     log.error("获取店铺评分失败", e);
 
@@ -795,6 +1171,7 @@ const getOperationAndWanXiangTaiData = async (browserParam: any) => {
   //万相台数据
   let wanxiangtaiData;
 
+  let checkedTags
 
   try {
     //等待.qn_plus_square元素加载完毕
@@ -805,9 +1182,17 @@ const getOperationAndWanXiangTaiData = async (browserParam: any) => {
 
     await homePage.waitForSelector('.next-dialog-body .next-tag');
 
-    await homePage.evaluate(() => {
+    checkedTags = await homePage.evaluate(() => {
+      let checkTagArr: any = [];
 
       const tags = document.querySelectorAll('.next-dialog-body .next-tag') as any;
+
+      tags.forEach((tag: any) => {
+        // 判断元素是否包含 'checked' 类名
+        if (tag.classList.contains('checked')) {
+          checkTagArr.push(tag?.innerText);
+        }
+      });
 
       tags.forEach(tag => {
         // 判断元素是否包含 'checked' 类名
@@ -828,6 +1213,8 @@ const getOperationAndWanXiangTaiData = async (browserParam: any) => {
       let btnEle = document.querySelector(".next-dialog-footer button") as any
       btnEle.click();
 
+      //将 checkedTags 返回
+      return checkTagArr;
     });
 
     //等待.next-row元素加载完毕 
@@ -1158,6 +1545,46 @@ const getOperationAndWanXiangTaiData = async (browserParam: any) => {
       addToCartNumber: "获取失败",
       collectionNumber: "获取失败"
     }
+  }
+
+  //恢复指标
+  try {
+    //获取到此元素并点击
+    await homePage.click(".qn_plus_square");
+
+    await homePage.waitForSelector('.next-dialog-body .next-tag');
+
+    await homePage.evaluate((arr) => {
+
+      console.log("arr", arr);
+
+      const tags = document.querySelectorAll('.next-dialog-body .next-tag') as any;
+
+      tags.forEach((tag: any) => {
+        if (tag.classList.contains('checked')) {
+          // 如果包含 'checked' 类名，点击该元素
+          tag.click();
+        }
+      });
+
+      tags.forEach(tag => {
+        let tagText = tag.innerText;
+
+        for (let i = 0; i < arr.length; i++) {
+          if (tagText == (arr[i])) {
+            tag.click();
+          }
+        }
+      });
+
+
+      let btnEle = document.querySelector(".next-dialog-footer button") as any
+      btnEle.click();
+
+    }, checkedTags);
+  } catch (e: any) {
+    log.error("恢复指标失败");
+    log.error(e.message);
   }
 
   //周数据 https://sycm.taobao.com/portal/home.htm?activeKey=operator&dateType=week

@@ -42,6 +42,9 @@ contextBridge.exposeInMainWorld("primaryWindowAPI", {
   //获取店铺信息
   getShopsInfo: (param: any, flag: any) => ipcRenderer.send("get-shops-info", param, flag),
 
+  //发送所有店铺信息
+  sendAllShopsInfo: (param: any) => ipcRenderer.send("send-all-shops-info", param),
+
   //获取配置
   getConfig: () => ipcRenderer.send("get-config"),
 

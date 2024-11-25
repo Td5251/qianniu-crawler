@@ -29,8 +29,14 @@
 								</template>
 								获取中
 							</a-tag>
+							<a-tag color="volcano" v-else-if="record.status == 'wait' || !record.status">
+								<template #icon>
+									<sync-outlined :spin="true" />
+								</template>
+								等待中
+							</a-tag>
 							<a-tag v-else-if="record.status == 'not-login'" :bordered="false" color="warning">未登录</a-tag>
-							<a-tag v-else :bordered="false" color="error">网络异常 请点击重试</a-tag>
+							<a-tag v-else-if="record.status == 'error'" :bordered="false" color="error">网络异常 请点击重试</a-tag>
 						</template>
 
 						<template v-else-if="column.key === 'crawlerTime'">
@@ -697,16 +703,9 @@ const getBodyData = () => {
 					getShopsInfo(item);
 				}, i * 200);
 			}
-
-			// if (bodyData.value.length > 0) {
-			// 	getElectronApi().getShopsInfoBatch(JSON.stringify(bodyData.value));
-			// }
-
-
 		});
 };
-
-getBodyData();
+getBodyData()
 
 
 const login = (record: any) => {
