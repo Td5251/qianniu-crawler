@@ -807,6 +807,11 @@ getElectronApi().onGetShopsInfo((param: any) => {
 						value = value.trim();
 					}
 
+					if (value.includes(",")) {
+						value = value.replaceAll(/,/g, '');
+						value = value.trim();
+					}
+
 					//正则匹配是否是数字
 					const regex = /^-?\d+(\.\d+)?$/
 					if (regex.test(value)) {
