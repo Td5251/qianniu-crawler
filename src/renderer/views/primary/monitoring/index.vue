@@ -786,6 +786,39 @@ getElectronApi().onGetShopsInfo((param: any) => {
 	//在bodData中找到对应的数据并更新
 	let item = bodyData.value.find((item: any) => item.id == requestParam.id);
 	item = Object.assign(item, requestParam);
+
+	let tempStatistics = JSON.parse(JSON.stringify(statisticsStart.value));
+
+	for (let i = 0; i < bodyData.value.length; i++) {
+		let item = bodyData.value[i];
+		if (item.status == "success") {
+			for (let key in item) {
+				//如果topColumns中有这个key
+				if (key in tempStatistics) {
+					let value = item[key] + ""
+
+					if (!value) {
+						continue;
+					}
+
+					//如果包含/则是今日/昨日 拿到今日的值
+					if (value.includes("/")) {
+						value = value.split("/")[0];
+						value = value.trim();
+					}
+
+					//正则匹配是否是数字
+					const regex = /^-?\d+(\.\d+)?$/
+					if (regex.test(value)) {
+						tempStatistics[key] += parseFloat(value);
+					}
+				}
+
+			}
+		}
+	}
+
+	statistics.value = tempStatistics;
 });
 
 const getCurrentData = (item: any) => {
@@ -802,50 +835,6 @@ const getCurrentData = (item: any) => {
 
 	getElectronApi().getShopsInfo(param, false);
 };
-
-//深度监听bodyData
-watch(bodyData, (newVal, oldVal) => {
-	let tempStatistics = JSON.parse(JSON.stringify(statisticsStart.value));
-
-	for (let i = 0; i < newVal.length; i++) {
-		let item = newVal[i];
-		if (item.status == "success") {
-			for (let key in item) {
-				//如果topColumns中有这个key
-				if (key in tempStatistics) {
-					let value = item[key];
-
-					//如果包含/则是今日/昨日 拿到今日的值
-					if (value.includes("/")) {
-						value = value.split("/")[0];
-						value = value.trim();
-					}
-
-					console.log("key: ", key, " value: ", value);
-					console.log(!isNaN(value));
-
-
-
-					//如果是数字
-					// if (!isNaN(value)) {
-					// 	tempStatistics[key] += parseFloat(value);
-					// }
-
-					//正则匹配是否是数字
-					const regex = /^-?\d+(\.\d+)?$/
-					if (regex.test(value)) {
-						tempStatistics[key] += parseFloat(value);
-					}
-				}
-
-			}
-		}
-	}
-
-	statistics.value = tempStatistics;
-
-}, { deep: true });
-
 
 const showContent = (item: any) => {
 	// statistics[item.dataIndex]? isNaN(statistics[item.dataIndex]) ? statistics[item.dataIndex] : $td.formatNumber(statistics[item.dataIndex]) : '/' }}
