@@ -29,14 +29,12 @@
 								</template>
 								获取中
 							</a-tag>
-							<a-tag color="volcano" v-else-if="record.status == 'wait' || !record.status">
-								<template #icon>
-									<sync-outlined :spin="true" />
-								</template>
-								等待中
-							</a-tag>
 							<a-tag v-else-if="record.status == 'not-login'" :bordered="false" color="warning">未登录</a-tag>
 							<a-tag v-else-if="record.status == 'error'" :bordered="false" color="error">网络异常 请点击重试</a-tag>
+							<a-tag color="volcano" v-else>
+
+								待获取
+							</a-tag>
 						</template>
 
 						<template v-else-if="column.key === 'crawlerTime'">
@@ -85,8 +83,8 @@ const columns: any = [
 	},
 	{
 		title: "店铺名称",
-		dataIndex: "shopName",
-		key: "shopName",
+		dataIndex: "shopsName",
+		key: "shopsName",
 		align: "center",
 		fixed: 'left',
 		width: 120
@@ -118,8 +116,8 @@ const columns: any = [
 	//店铺层级
 	{
 		title: "店铺层级",
-		dataIndex: "shopLevel",
-		key: "shopLevel",
+		dataIndex: "shopsLevel",
+		key: "shopsLevel",
 		align: "center",
 		width: 120
 	},
@@ -155,78 +153,7 @@ const columns: any = [
 		align: "center",
 		width: 120
 	},
-	//聚合账户余额
-	{
-		title: "聚合账户余额",
-		dataIndex: "aggregateBalance",
-		key: "aggregateBalance",
-		align: "center",
-		width: 120
-	},
-	//出售中
-	{
-		title: "出售中",
-		dataIndex: "selling",
-		key: "selling",
-		align: "center",
-		width: 120
-	},
-	//仓库中
-	{
-		title: "仓库中",
-		dataIndex: "warehouse",
-		key: "warehouse",
-		align: "center",
-		width: 120
-	},
-	//近30天成交
-	{
-		title: "近30天成交",
-		dataIndex: "transaction",
-		key: "transaction",
-		align: "center",
-		width: 120
-	},
-	//待发货
-	{
-		title: "待发货",
-		dataIndex: "toBeDelivered",
-		key: "toBeDelivered",
-		align: "center",
-		width: 120
-	},
-	//待付款
-	{
-		title: "待付款",
-		dataIndex: "toBePaid",
-		key: "toBePaid",
-		align: "center",
-		width: 120
-	},
-	//待处理投诉
-	{
-		title: "待处理投诉",
-		dataIndex: "toBeComplaint",
-		key: "toBeComplaint",
-		align: "center",
-		width: 120
-	},
-	//待售后
-	{
-		title: "待售后",
-		dataIndex: "toBeAfterSale",
-		key: "toBeAfterSale",
-		align: "center",
-		width: 120
-	},
-	//待评价
-	{
-		title: "待评价",
-		dataIndex: "toBeEvaluated",
-		key: "toBeEvaluated",
-		align: "center",
-		width: 120
-	},
+
 	//访客
 	{
 		title: "今/昨/周/月访客",
@@ -341,18 +268,92 @@ const columns: any = [
 		width: 120
 	},
 	//加购商品数量
-	{
-		title: "今/昨加购商品数",
-		dataIndex: "addToCartNumber",
-		key: "addToCartNumber",
-		align: "center",
-		width: 120
-	},
+	// {
+	// 	title: "今/昨加购商品数",
+	// 	dataIndex: "addToCartNumber",
+	// 	key: "addToCartNumber",
+	// 	align: "center",
+	// 	width: 120
+	// },
 	//收藏商品数量
 	{
 		title: "今/昨收藏商品数",
 		dataIndex: "collectionNumber",
 		key: "collectionNumber",
+		align: "center",
+		width: 120
+	},
+	//出售中
+	{
+		title: "出售中",
+		dataIndex: "selling",
+		key: "selling",
+		align: "center",
+		width: 120
+	},
+	//仓库中
+	{
+		title: "仓库中",
+		dataIndex: "warehouse",
+		key: "warehouse",
+		align: "center",
+		width: 120
+	},
+
+	//待发货
+	{
+		title: "待发货",
+		dataIndex: "toBeDelivered",
+		key: "toBeDelivered",
+		align: "center",
+		width: 120
+	},
+	//待付款
+	{
+		title: "待付款",
+		dataIndex: "toBePaid",
+		key: "toBePaid",
+		align: "center",
+		width: 120
+	},
+	//待处理投诉
+	{
+		title: "待处理投诉",
+		dataIndex: "toBeComplaint",
+		key: "toBeComplaint",
+		align: "center",
+		width: 120
+	},
+	//待售后
+	{
+		title: "待售后",
+		dataIndex: "toBeAfterSale",
+		key: "toBeAfterSale",
+		align: "center",
+		width: 120
+	},
+	//待评价
+	{
+		title: "待评价",
+		dataIndex: "toBeEvaluated",
+		key: "toBeEvaluated",
+		align: "center",
+		width: 120
+	},
+	//聚合账户余额
+	{
+		title: "聚合账户余额",
+		dataIndex: "aggregateBalance",
+		key: "aggregateBalance",
+		align: "center",
+		width: 120
+	},
+
+	//近30天成交
+	{
+		title: "近30天成交",
+		dataIndex: "transaction",
+		key: "transaction",
 		align: "center",
 		width: 120
 	},
@@ -626,7 +627,7 @@ const topColumns: any = [
 let paramStart = ref({
 	id: "",
 	username: "",
-	shopName: "/",
+	shopsName: "/",
 	remark: "",
 	status: "retrieving",
 	crawlerTime: "",
@@ -670,7 +671,7 @@ const getShopsInfo = (record: any) => {
 
 	console.log(record);
 
-	getElectronApi().getShopsInfo(JSON.stringify(record), true);
+	getElectronApi().getMonitorInfo(JSON.stringify(record), true);
 };
 
 
@@ -838,7 +839,7 @@ const getCurrentData = (item: any) => {
 
 	let param = JSON.stringify(item);
 
-	getElectronApi().getShopsInfo(param, false);
+	getElectronApi().getMonitorInfo(param, false);
 };
 
 const showContent = (item: any) => {

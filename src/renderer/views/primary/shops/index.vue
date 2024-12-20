@@ -26,7 +26,22 @@
 						</template>
 
 						<template v-else-if="column.key === 'status'">
-							<a-tag :bordered="false" color="success" v-if="loginInfoMap?.get(record.username)">已登录</a-tag>
+							<div v-if="loginInfoMap?.get(record.username)">
+								<a-tag :bordered="false" color="success"
+									v-if="loginInfoMap?.get(record.username).status == 'success'">已登录</a-tag>
+								<a-tag color="warning" v-else-if="loginInfoMap?.get(record.username).status == 'waitInit'">
+									<template #icon>
+										<sync-outlined :spin="true" />
+									</template>
+									等待登录中
+								</a-tag>
+								<a-tag color="purple" v-else-if="loginInfoMap?.get(record.username).status == 'initing'">
+									<template #icon>
+										<sync-outlined :spin="true" />
+									</template>
+									自动登录中
+								</a-tag>
+							</div>
 							<a-tag :bordered="false" color="warning" v-else>未登录</a-tag>
 						</template>
 
@@ -35,11 +50,15 @@
 						</template>
 
 						<template v-else-if="column.key === 'loginTime'">
-							{{ loginInfoMap?.get(record.username) ? $td.formatDT(loginInfoMap.get(record.username).loginTime) : "" }}
+							<div v-if="loginInfoMap?.get(record.username)?.loginTime">
+								{{ loginInfoMap?.get(record.username) ? $td.formatDT(loginInfoMap.get(record.username).loginTime) : ""
+								}}
+							</div>
+
 						</template>
 
 						<template v-else-if="column.key === 'action'">
-							<a-button type="dashed" @click="login(record)">登录</a-button>
+							<a-button type="dashed" @click="login([record])">登录</a-button>
 							<a-button type="dashed" @click="resetPwdOfModal.open(record)">编辑</a-button>
 
 							<a-button type="dashed" @click="deleteItem(record)">删除</a-button>
@@ -63,7 +82,9 @@ import { ref, computed, reactive, onMounted } from "vue";
 import $td from "../../../../lib/td";
 import ActionOfModal from "./ActionOfModal/index.vue";
 import ResetPwdOfModal from "./ResetPwdOfModal/index.vue";
-
+import {
+	SyncOutlined,
+} from '@ant-design/icons-vue';
 
 let getElectronApi = () => {
 	return (window as any).primaryWindowAPI;
@@ -236,11 +257,9 @@ const onSelectChange = (selectedRowKeys: any[]) => {
 };
 
 
-const login = (record: any) => {
-	console.log(record);
-
+const login = (param: Array<any>) => {
 	// getElectronApi().showLoginPage(JSON.stringify(record));
-	getElectronApi().shopsLogin(JSON.stringify(record));
+	getElectronApi().shopsLogin(JSON.stringify(param));
 };
 
 const loginInfoMap = ref()
@@ -268,9 +287,11 @@ const loginActiveAccount = () => {
 		return;
 	}
 
-	for (let i = 0; i < activeList.length; i++) {
-		getElectronApi().shopsLogin(JSON.stringify(activeList[i]));
-	}
+	login(activeList);
+
+	// for (let i = 0; i < activeList.length; i++) {
+	// 	getElectronApi().shopsLogin(JSON.stringify(activeList[i]));
+	// }
 
 };
 
@@ -285,11 +306,12 @@ const batchLoginLogoutAccount = () => {
 		return;
 	}
 
-	for (let i = 0; i < activeList.length; i++) {
-		setTimeout(() => {
-			getElectronApi().shopsLogin(JSON.stringify(activeList[i]));
-		}, i * 200);
-	}
+	login(activeList);
+	// for (let i = 0; i < activeList.length; i++) {
+	// 	setTimeout(() => {
+	// 		getElectronApi().shopsLogin(JSON.stringify(activeList[i]));
+	// 	}, i * 200);
+	// }
 
 };
 </script>

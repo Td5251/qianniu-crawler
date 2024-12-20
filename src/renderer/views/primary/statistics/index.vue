@@ -30,7 +30,7 @@
 								获取中
 							</a-tag>
 							<a-tag v-else-if="record.status == 'not-login'" :bordered="false" color="warning">未登录</a-tag>
-							<a-tag v-else :bordered="false" color="error">网络异常 请点击重试</a-tag>
+							<a-tag v-else :bordered="false" color="volcano">待获取</a-tag>
 						</template>
 
 						<template v-else-if="column.key === 'crawlerTime'">
@@ -481,7 +481,7 @@ const getShopsInfo = (record: any) => {
 
 	console.log(record);
 
-	getElectronApi().getShopsInfo(JSON.stringify(record), true);
+	getElectronApi().getStatisticsData(JSON.stringify(record), true);
 };
 
 
@@ -568,7 +568,7 @@ let statisticsStart =
 
 //监听主进程响应内容
 getElectronApi().onGetShopsInfo((param: any) => {
-	console.log("响应的信息");
+	console.log("响应的信息", param);
 	let requestParam = JSON.parse(param);
 	//在bodData中找到对应的数据并更新
 	let item = bodyData.value.find((item: any) => item.id == requestParam.id);
@@ -587,7 +587,7 @@ const getCurrentData = (item: any) => {
 
 	let param = JSON.stringify(item);
 
-	getElectronApi().getShopsInfo(param, false);
+	getElectronApi().getStatisticsData(param, false);
 };
 
 //深度监听bodyData
@@ -602,10 +602,13 @@ watch(bodyData, (newVal, oldVal) => {
 				if (key in tempStatistics) {
 					let value = item[key];
 
+					console.log("value", value);
+
+
 					//如果包含/则是今日/昨日 拿到今日的值
-					if (value.includes("/")) {
-						value = value.split("/")[0];
-					}
+					// if (value.includes("/")) {
+					// 	value = value.split("/")[0];
+					// }
 
 					//如果是数字
 					if (!isNaN(value)) {

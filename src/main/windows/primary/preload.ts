@@ -40,7 +40,18 @@ contextBridge.exposeInMainWorld("primaryWindowAPI", {
   getLoginInfo: () => ipcRenderer.send("get-login-info"),
 
   //获取店铺信息
-  getShopsInfo: (param: any, flag: any) => ipcRenderer.send("get-shops-info", param, flag),
+  getShopsInfo: (param: any, flag: any, type: any) => {
+    if (type) {
+      ipcRenderer.send("get-shops-info-2", param, flag)
+    } else {
+      ipcRenderer.send("get-shops-info-1", param, flag)
+    }
+  },
+  //获取监控信息
+  getMonitorInfo: (param: any, flag: any) => ipcRenderer.send("get-monitor-info", param, flag),
+
+  //获取统计数据
+  getStatisticsData: (param: any, flag: any) => ipcRenderer.send("get-statistics-data", param, flag),
 
   //发送所有店铺信息
   sendAllShopsInfo: (param: any) => ipcRenderer.send("send-all-shops-info", param),
