@@ -48,6 +48,14 @@
 						<template v-else-if="column.key === 'createTime'">
 							{{ record.createTime?.replace("T", " ") }}
 						</template>
+						<template v-else-if="column.key === 'type'">
+							<div v-if="record.type">
+								{{ record.type }}
+							</div>
+							<div v-else>
+								未分组
+							</div>
+						</template>
 
 						<template v-else-if="column.key === 'loginTime'">
 							<div v-if="loginInfoMap?.get(record.username)?.loginTime">
@@ -156,6 +164,18 @@ const columns: any = [
 		title: "登录时间",
 		dataIndex: "loginTime",
 		key: "loginTime",
+		align: "center",
+	},
+	{
+		title: "分组",
+		dataIndex: "type",
+		key: "type",
+		align: "center",
+	},
+	{
+		title: "客服",
+		dataIndex: "service",
+		key: "service",
 		align: "center",
 	},
 	{

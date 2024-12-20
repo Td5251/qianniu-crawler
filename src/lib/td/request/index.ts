@@ -18,7 +18,7 @@ let getElectronApi = () => {
 };
 
 function getBaseURL() {
-  return "http://localhost:10090";
+  // return "http://localhost:10090";
   return "http://47.120.66.80:10090";
 }
 

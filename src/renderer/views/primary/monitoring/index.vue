@@ -12,9 +12,23 @@
 		</div>
 
 		<div class="bottom">
+
+			<div class="shops-list">
+				<a-button size="small" @click="getSelectShopsData">
+					获取选中店铺数据
+				</a-button>
+				<a-tree v-model:expandedKeys="expandedKeys" v-model:selectedKeys="selectedKeys"
+					v-model:checkedKeys="checkedKeys" checkable :tree-data="treeData" :field-names="fieldNames">
+					<template #title="{ name, key }">
+						<span v-if="key === '0-0-1'" style="color: #1890ff">{{ name }}</span>
+						<template v-else>{{ name }}</template>
+					</template>
+				</a-tree>
+			</div>
+
 			<div class="content">
 
-				<a-table :columns="columns" :data-source="bodyData" :scroll="{ x: 1000, y: 520 }" :pagination="false">
+				<a-table :columns="columns" :data-source="pageData" :scroll="{ x: 1000, y: 520 }" :pagination="false">
 					<template #bodyCell="{ column, index, record }">
 						<template v-if="column.key === 'operation'">
 							<a-button @click="getCurrentData(record)" size="small"
@@ -52,11 +66,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive, onMounted, watch } from "vue";
+import { ref, computed, reactive, onMounted, watch, Ref } from "vue";
 import $td from "../../../../lib/td";
 import {
 	SyncOutlined,
 } from '@ant-design/icons-vue';
+
+import type { TreeProps } from 'ant-design-vue';
+const expandedKeys = ref<string[]>([]);
+const selectedKeys = ref<string[]>([]);
+const checkedKeys = ref<string[]>([]);
+
 
 
 let getElectronApi = () => {
@@ -70,6 +90,7 @@ let requestParam = ref({
 
 });
 
+let pageData = ref<any>([])
 
 
 const columns: any = [
@@ -85,6 +106,14 @@ const columns: any = [
 		title: "店铺名称",
 		dataIndex: "shopsName",
 		key: "shopsName",
+		align: "center",
+		fixed: 'left',
+		width: 120
+	},
+	{
+		title: "客服",
+		dataIndex: "service",
+		key: "service",
 		align: "center",
 		fixed: 'left',
 		width: 120
@@ -689,8 +718,59 @@ const getBodyData = () => {
 
 			bodyData.value = res.data || []
 
+			treeData.value = []
+
+			let typeMap: any = {}
+
+
 			for (let i = 0; i < bodyData.value.length; i++) {
 				let item = bodyData.value[i];
+
+				if (!item.type) {
+					item.type = "未分组"
+				}
+
+				if (!typeMap[item.type]) {
+					typeMap[item.type] = []
+				}
+			}
+
+			console.log("分组信息");
+
+			console.log(typeMap);
+
+
+			//拿到所有的key
+			let keys = Object.keys(typeMap);
+
+			for (let i = 0; i < keys.length; i++) {
+				let key = keys[i];
+				let item = {
+					name: key,
+					key: key,
+					child: []
+				}
+				treeData.value.push(item);
+			}
+
+
+			for (let i = 0; i < bodyData.value.length; i++) {
+				let item = bodyData.value[i];
+				//组装treeData
+				//按照type分组
+				let type = item.type;
+
+				//找到对应的type
+				let typeItem = treeData.value.find((item: any) => item.name == type);
+
+				if (typeItem) {
+					typeItem.child.push({
+						name: item.username,
+						key: item.id,
+						disabled: item.disabled || false
+					});
+				}
+
 				let temp = ref(JSON.parse(JSON.stringify(paramStart.value)));
 
 				temp.value.id = item.id;
@@ -820,6 +900,40 @@ getElectronApi().onGetShopsInfo((param: any) => {
 					}
 				}
 
+				//如果pageData中没有这个key
+				let pageItem = pageData.value.find((it: any) => it.id == item.id);
+				if (!pageItem) {
+					pageData.value.push(item);
+				} else {
+					//更新pageData
+					//将item中的数据更新到pageData中
+					pageItem = Object.assign(pageItem, item);
+
+
+				}
+			}
+		} else if (item.status == 'not-login') {
+			//根据item.type找到在treeData中的位置
+			let typeItem = treeData.value.find((it: any) => it.name == item.type);
+
+			if (typeItem) {
+				let child = typeItem.child.find((it: any) => it.key == item.id);
+				if (child) {
+					child.disabled = true;
+				}
+			}
+
+			//从pageData中删除
+			let index = pageData.value.findIndex((it: any) => it.id == item.id);
+			if (index != -1) {
+				pageData.value.splice(index, 1);
+			}
+
+		} else if (item.status == "retrieving") {
+			//如果pageData中没有这个key
+			let pageItem = pageData.value.find((it: any) => it.id == item.id);
+			if (!pageItem) {
+				pageData.value.push(item);
 			}
 		}
 	}
@@ -856,6 +970,52 @@ const showContent = (item: any) => {
 	return item.toFixed(2)
 
 }
+
+const fieldNames: TreeProps['fieldNames'] = {
+	children: 'child',
+	title: 'name',
+};
+
+const treeData: any = ref([
+
+]);
+watch(expandedKeys, () => {
+	console.log('expandedKeys', expandedKeys);
+});
+watch(selectedKeys, () => {
+	console.log('selectedKeys', selectedKeys);
+});
+watch(checkedKeys, () => {
+	console.log('checkedKeys', checkedKeys);
+});
+
+const getSelectShopsData = () => {
+	// let selectShops = bodyData.value.filter((item: any) => {
+	// 	return selectedKeys.value.includes(item.id);
+	// });
+
+	console.log(checkedKeys.value);
+
+	let selectShops = bodyData.value.filter((item: any) => {
+		return checkedKeys.value.includes(item.id);
+	});
+
+
+	if (selectShops.length == 0) {
+		$td.message.error("请选择店铺");
+		return;
+	}
+
+	console.log(selectShops);
+
+
+	for (let i = 0; i < selectShops.length; i++) {
+		let item = selectShops[i];
+		console.log(item);
+
+		getCurrentData(selectShops[i]);
+	}
+};
 </script>
 
 <style scoped>
@@ -875,14 +1035,24 @@ const showContent = (item: any) => {
 	/* height: calc(100% - 28px); */
 	height: 100%;
 	display: flex;
-	flex-direction: column;
+	/* flex-direction: column;
 	align-items: flex-end;
-	border-radius: 4px;
+	border-radius: 4px; */
+}
 
+.shops-list {
+	width: 18%;
+	height: 100%;
+	max-height: 100%;
+	overflow-y: auto;
+	background-color: white;
+	overflow: scroll;
+	box-sizing: border-box;
+	text-align: center
 }
 
 .content {
-	width: 100%;
+	width: 82%;
 	/* height: calc(100% - 36px); */
 	height: 100%;
 	max-height: 100%;

@@ -10,6 +10,14 @@
           <a-input v-model:value="requestParam.password" />
         </a-form-item>
 
+        <a-form-item label="分组">
+          <a-input v-model:value="requestParam.type" />
+        </a-form-item>
+
+        <a-form-item label="客服">
+          <a-input v-model:value="requestParam.service" />
+        </a-form-item>
+
         <a-form-item label="备注">
           <a-input v-model:value="requestParam.remark" />
         </a-form-item>
@@ -30,6 +38,8 @@ let requestParam = ref({
   username: "",
   password: "",
   remark: "",
+  type: "",
+  service: "",
 });
 
 let requestParamStart: any = ref({
@@ -37,6 +47,8 @@ let requestParamStart: any = ref({
   username: "",
   password: "",
   remark: "",
+  type: "",
+  service: "",
 });
 const open = (param: any) => {
   flag.value = true;

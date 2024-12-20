@@ -1277,7 +1277,7 @@ class PrimaryWindow extends WindowBase {
         }
 
 
-        let { shopsName, shopsData, wanxiangtaiData, otherIndicatorsData } = await getOperationAndWanXiangTaiDataByApi(browser, requestParam.username) as any
+        let { shopsName, shopsLevel, shopsData, wanxiangtaiData, otherIndicatorsData } = await getOperationAndWanXiangTaiDataByApi(browser, requestParam) as any
         let operationData = await getOperationDataByApi(browser, requestParam.username) as any
         let depositData = await getDepositDataByApi(browser, requestParam.username)
         let aggregateBalance = await getAggregateBalanceDataByApi(browser, requestParam.username)
@@ -1298,7 +1298,7 @@ class PrimaryWindow extends WindowBase {
           ...goodsData,
           aggregateBalance: aggregateBalance,
           ...depositData,
-          shopLevel: shopsData.shopLevel,
+          shopsLevel: shopsLevel,
           // ...statisticsData,
 
           status: "success",
@@ -2342,74 +2342,60 @@ const getOperationAndWanXiangTaiData = async (browserParam: any) => {
   }
 }
 
-const getOperationAndWanXiangTaiDataByApi = async (browserParam: any, username) => {
+const getOperationAndWanXiangTaiDataByApi = async (browserParam: any, requestParam: any) => {
 
+  let username = requestParam.username;
   let loginInfo = accountLoginInfoMap.get(username);
 
   let cookieStr = accountLoginInfoMap.get(username).cookie || "";
 
+  let shopsInfo: any = await monitoringMap.get(requestParam.id);
+
+  console.log("shopsInfo", shopsInfo);
+
+
   let shopsData;
 
-  let shopsName = "";
   try {
-    let shopsDataApi = `https://sycm.taobao.com/portal/new/experience/scorecard.json`
 
-    let shopsDataRes = await axios.get(shopsDataApi, {
-      headers: {
-        "cookie": cookieStr,
+    if (shopsInfo) {
+      console.log("获取缓存中的店铺数据");
+
+      shopsData = {
+        babyBuality: shopsInfo.babyBuality,
+        logisticsSpeed: shopsInfo.logisticsSpeed,
+        serviceGuarantee: shopsInfo.serviceGuarantee,
+        shopsScore: shopsInfo.shopsScore
       }
-    });
+    } else {
 
-    /**
-     {
-  "content": {
-    "code": 0,
-    "data": {
-      "industryRank": 39,
-      "logisticsExpValueLevel": 1,
-      "npsValue": "4.76",
-      "goodsValueLevel": 1,
-      "goodsExpValueLevel": 1,
-      "npsValueOutLevel": 3,
-      "npsStarNum": "0.00",
-      "goodsValue": "5.00",
-      "serviceExpValue": "4.41",
-      "bcType": 0,
-      "logisticsValue": "5.00",
-      "npsValueLevel": 1,
-      "goodsExpValue": "5.00",
-      "logisticsValueLevel": 1,
-      "serviceExpValueLevel": 2,
-      "dateId": "20241216",
-      "rankValue": 39,
-      "logisticsExpValue": "5.00",
-      "npsValueOut": "4.76"
-    },
-    "message": "操作成功",
-    "traceId": "213dfbc917344430138311153e17ca"
-  },
-  "hasError": false
-}
-     */
+      let shopsDataApi = `https://sycm.taobao.com/portal/new/experience/scorecard.json`
 
-    let code = shopsDataRes.data.content.code;
-    let data = shopsDataRes.data.content.data;
+      let shopsDataRes = await axios.get(shopsDataApi, {
+        headers: {
+          "cookie": cookieStr,
+        }
+      });
 
-    if (code != 0) {
-      throw new Error("获取店铺数据失败" + shopsDataRes.data);
+      let code = shopsDataRes.data.content.code;
+      let data = shopsDataRes.data.content.data;
+
+      if (code != 0) {
+        throw new Error("获取店铺数据失败" + shopsDataRes.data);
+      }
+
+      console.log("店铺数据：", data);
+
+      shopsData = {
+        babyBuality: data.goodsValue,
+        logisticsSpeed: data.logisticsValue,
+        serviceGuarantee: data.serviceExpValue,
+        shopsScore: data.npsValue,
+      }
+
+      console.log("解析后的：", shopsData);
     }
 
-    console.log("店铺数据：", data);
-
-    shopsData = {
-      babyBuality: data.goodsValue,
-      logisticsSpeed: data.logisticsValue,
-      serviceGuarantee: data.serviceExpValue,
-      shopsScore: data.npsValue,
-      shopsLevel: data.npsValueOutLevel
-    }
-
-    console.log("解析后的：", shopsData);
 
   } catch (e: any) {
     log.error("获取店铺数据失败", e);
@@ -2419,51 +2405,76 @@ const getOperationAndWanXiangTaiDataByApi = async (browserParam: any, username) 
       logisticsSpeed: "获取失败",
       serviceGuarantee: "获取失败",
       shopsScore: "获取失败",
-      shopsLevel: "获取失败"
     }
   }
 
-
+  let shopsLevel;
   try {
-    let shopsNameApi = `https://sycm.taobao.com/custom/menu/getPersonalView.json`
 
-    let shopsNameRes = await axios.get(shopsNameApi, {
-      headers: {
-        "cookie": cookieStr,
-        "Referer": "https://sycm.taobao.com/portal/home.htm"
+    if (shopsInfo) {
+      console.log("获取缓存中的店铺等级");
+
+      shopsLevel = shopsInfo.shopsLevel;
+    } else {
+
+      let yesterday = getYesterday();
+      let dateRange = `${formatDate(yesterday)}%7C${formatDate(yesterday)}`;
+      let shopsLevelApi = ` https://sycm.taobao.com/portal/month/overview.json?dateType=day&dateRange=${dateRange}&sellerType=online`
+
+      let shopsLevelRes = await axios.get(shopsLevelApi, {
+        headers: {
+          "cookie": cookieStr,
+        }
+      });
+
+      console.log("店铺等级数据：", shopsLevelRes.data);
+
+      let code = shopsLevelRes.data.content.code;
+      let data = shopsLevelRes.data.content.data;
+
+      if (code != 0) {
+        throw new Error(shopsLevelRes.data);
       }
-    });
 
-    /**
-     {
-    "traceId": "2127b52d17345170099822229e1361",
-    "code": 0,
-    "data": {
-        "runAsUserName": "tb822174710238",
-        "mainUserName": "tb822174710238",
-        "runAsShopId": 485220654,
-        "runAsShopTitle": "冉森家具馆",
-        "runAsShopType": 0,
-        "isRetailSeller": 0,
-        "loginUserId": 2218932247834,
-        "mainUserId": 2218137783636,
-        "loginUserName": "tb822174710238:磊磊",
-        "runAsUserId": 2218137783636
-    },
-    "message": "操作成功"
-}
-     */
-
-    let code = shopsNameRes.data.code;
-    let data = shopsNameRes.data.data;
-
-    if (code != 0) {
-      throw new Error(JSON.stringify(shopsNameRes.data));
+      shopsLevel = "第" + data.cateLevel + "层级"
     }
 
-    shopsName = data.runAsShopTitle;
 
-    console.log("店铺名称：", data);
+  } catch (e: any) {
+    log.error("获取店铺等级数据失败", e);
+
+    shopsLevel = "获取失败";
+  }
+
+  let shopsName = "";
+  try {
+
+    if (shopsInfo) {
+      console.log("获取缓存中的店铺名称");
+
+      shopsName = shopsInfo.shopsName;
+    } else {
+
+      let shopsNameApi = `https://sycm.taobao.com/custom/menu/getPersonalView.json`
+
+      let shopsNameRes = await axios.get(shopsNameApi, {
+        headers: {
+          "cookie": cookieStr,
+          "Referer": "https://sycm.taobao.com/portal/home.htm"
+        }
+      });
+      let code = shopsNameRes.data.code;
+      let data = shopsNameRes.data.data;
+
+      if (code != 0) {
+        throw new Error(JSON.stringify(shopsNameRes.data));
+      }
+
+      shopsName = data.runAsShopTitle;
+
+      console.log("店铺名称：", data);
+    }
+
 
   } catch (e: any) {
     log.error("获取店铺名称失败", e);
@@ -2487,10 +2498,9 @@ const getOperationAndWanXiangTaiDataByApi = async (browserParam: any, username) 
 
   try {
     //万象台余额
-    let wxtBalanceApi = `https://stlacct.taobao.com/settleAccount/account/getRealBalance.json?csrfId=3eceb42b7680db5d6e8c6a705240bf54_1_1_1&bizCode=universalBP&loginPointId=2166745d17344453454468463e1383`
+    let wxtBalanceApi = `https://stlacct.taobao.com/settleAccount/account/getRealBalance.json?bizCode=universalBP`
 
-    console.log("cookieStr", cookieStr);
-
+    let cookieStr = loginInfo.csrfId.split("|-|")[1];
 
     let wxtBalanceRes = await axios.get(wxtBalanceApi, {
       headers: {
@@ -2921,6 +2931,7 @@ const getOperationAndWanXiangTaiDataByApi = async (browserParam: any, username) 
 
 
   return {
+    shopsLevel: shopsLevel,
     shopsName: shopsName,
     shopsData: shopsData,
     wanxiangtaiData: wanxiangtaiData,
