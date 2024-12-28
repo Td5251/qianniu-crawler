@@ -56,6 +56,21 @@ contextBridge.exposeInMainWorld("primaryWindowAPI", {
   //发送所有店铺信息
   sendAllShopsInfo: (param: any) => ipcRenderer.send("send-all-shops-info", param),
 
+  //获取优惠券数据
+  getCouponData: (param: any, flag: any) => ipcRenderer.send("get-coupon-data", param, flag),
+
+  //添加优惠券
+  addCoupon: (requestParam: any, selectShops: any) => ipcRenderer.send("add-coupon", requestParam, selectShops),
+
+  //监听删除优惠券
+  deleteCoupon: (param: any, type: any) => ipcRenderer.send("delete-coupon", param, type),
+
+  //获取商品流量
+  getGoodsFlow: (param: any, flag: any, pageParam: any) => ipcRenderer.send("get-goods-flow", param, flag, pageParam),
+
+  //删除商品
+  deleteGoods: (param: any, type: any) => ipcRenderer.send("delete-goods", param, type),
+
   //获取配置
   getConfig: () => ipcRenderer.send("get-config"),
 
@@ -66,41 +81,78 @@ contextBridge.exposeInMainWorld("primaryWindowAPI", {
     ipcRenderer.on("show-exit-app-msgbox", () => {
       callback();
     }),
-  onShowClosePrimaryWinMsgbox: (callback) =>
+  onShowClosePrimaryWinMsgbox: (callback) => {
+    ipcRenderer.removeAllListeners("show-close-primary-win-msgbox");
     ipcRenderer.on("show-close-primary-win-msgbox", () => {
       callback();
-    }),
+    })
+  },
   //渲染进程监听主进程的事件
-  onShowSuccessMsgbox: (callback) =>
+  onShowSuccessMsgbox: (callback) => {
+    ipcRenderer.removeAllListeners("show-success-msgbox");
     ipcRenderer.on("show-success-msgbox", (event, message) => {
       callback(message);
-    }),
-  onShowErrorMsgbox: (callback) =>
+    })
+  },
+  onShowErrorMsgbox: (callback) => {
+    ipcRenderer.removeAllListeners("show-error-msgbox");
     ipcRenderer.on("show-error-msgbox", (event, message) => {
       callback(message);
-    }),
+    })
+  },
 
   //渲染进程接收主进程传递的值
-  onGetPrimaryValue: (callback) =>
+  onGetPrimaryValue: (callback) => {
+    ipcRenderer.removeAllListeners("get-primary-value");
     ipcRenderer.on("get-primary-value", (event, value) => {
       callback(value);
-    }),
+    })
+  },
 
   //将登录信息发送到渲染进程
-  onGetLoginInfo: (callback) =>
+  onGetLoginInfo: (callback) => {
+    ipcRenderer.removeAllListeners("get-login-info");
     ipcRenderer.on("get-login-info", (event, value) => {
       callback(value);
-    }),
+    })
+  },
 
   //将店铺信息发送到渲染进程
-  onGetShopsInfo: (callback) =>
+  onGetShopsInfo: (callback) => {
+    ipcRenderer.removeAllListeners("get-shops-info");
     ipcRenderer.on("get-shops-info", (event, value) => {
       callback(value);
-    }),
+    })
+  },
 
   //将配置传递给渲染进程
   onGetConfig: (callback) =>
     ipcRenderer.on("get-config", (event, value) => {
       callback(value);
     }),
+
+  //监听添加优惠券完成
+  onAddCouponSuccess: (callback) => {
+    ipcRenderer.removeAllListeners("add-coupon-success");
+    ipcRenderer.on("add-coupon-success", (event, value) => {
+      callback(value);
+    })
+  },
+
+  //监听删除优惠券
+  onDeleteCouponSuccess: (callback) => {
+    ipcRenderer.removeAllListeners("delete-coupon-success");
+    ipcRenderer.on("delete-coupon-success", (event, value) => {
+      callback(value);
+    })
+  },
+
+  //监听删除商品成功
+  onDeleteGoodsSuccess: (callback) => {
+    ipcRenderer.removeAllListeners("delete-goods-success");
+    return ipcRenderer.on("delete-goods-success", (event, value) => {
+      callback(value);
+    })
+  }
+
 });

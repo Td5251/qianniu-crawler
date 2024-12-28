@@ -1,0 +1,229 @@
+//mtop.alibaba.topservice.tmf.article.sku.get
+mtopjsonp36({
+	"api": "mtop.alibaba.topservice.tmf.article.sku.get",
+	"data": {
+		"sku": {
+			"rowList": [
+				{
+					"code": "priceLayer",
+					"from": "0.0",
+					"lineThrough": false,
+					"sort": 100,
+					"title": "价 格",
+					"to": "0.0",
+					"type": "priceType",
+					"unit": "元"
+				},
+				{
+					"code": "textLayer",
+					"list": [
+						{
+							"text": "少于100",
+							"title": "销量"
+						},
+						{
+							"text": "2038",
+							"title": "评价"
+						}
+					],
+					"sort": 350,
+					"type": "textType"
+				},
+				{
+					"code": "itemLayer",
+					"list": [
+						{
+							"code": "APP_ALIPAY_CREDITCARD_01",
+							"custom": false,
+							"disable": true,
+							"errorMsg": [
+								"%u60a8%u597d%uff0c%u60a8%u672c%u6b21%u8ba2%u8d2d%u65f6%u95f4%u52a0%u4e0a%u4e4b%u524d%u672a%u5230%u671f%u7684%u8ba2%u8d2d%u65f6%u95f4%uff0c%u4e0d%u80fd%u8d85%u8fc7%u0031%u0035%u6708"
+							],
+							"formatError": [
+								{
+									"msg": "您好，您本次订购时间加上之前未到期的订购时间，不能超过15月"
+								}
+							],
+							"freeTry": false,
+							"label": "信用卡支付服务(已订购)",
+							"param": {
+								"cycle": [
+									"2:12"
+								],
+								"properties": []
+							},
+							"select": true,
+							"sub": true,
+							"type": "button"
+						}
+					],
+					"sort": 500,
+					"title": "版 本",
+					"type": "buttonType"
+				},
+				{
+					"code": "cycleLayer",
+					"list": [
+						{
+							"code": "2:12",
+							"custom": false,
+							"disable": true,
+							"errorMsg": [
+								"%u60a8%u597d%uff0c%u60a8%u672c%u6b21%u8ba2%u8d2d%u65f6%u95f4%u52a0%u4e0a%u4e4b%u524d%u672a%u5230%u671f%u7684%u8ba2%u8d2d%u65f6%u95f4%uff0c%u4e0d%u80fd%u8d85%u8fc7%u0031%u0035%u6708"
+							],
+							"formatError": [
+								{
+									"msg": "您好，您本次订购时间加上之前未到期的订购时间，不能超过15月"
+								}
+							],
+							"freeTry": false,
+							"label": "一年",
+							"param": {
+								"itemCode": [
+									"APP_ALIPAY_CREDITCARD_01"
+								],
+								"properties": []
+							},
+							"select": true,
+							"sub": false,
+							"type": "button"
+						}
+					],
+					"sort": 600,
+					"title": "周 期",
+					"type": "buttonType"
+				},
+				{
+					"code": "actionLayer",
+					"list": [
+						{
+							"color": "#ff6a00",
+							"disable": true,
+							"errorMsg": [
+								"%u4fe1%u7528%u5361%u652f%u4ed8%u670d%u52a1%u003a%u0020%u60a8%u597d%uff0c%u60a8%u672c%u6b21%u8ba2%u8d2d%u65f6%u95f4%u52a0%u4e0a%u4e4b%u524d%u672a%u5230%u671f%u7684%u8ba2%u8d2d%u65f6%u95f4%uff0c%u4e0d%u80fd%u8d85%u8fc7%u0031%u0035%u6708"
+							],
+							"formatError": [
+								{
+									"msg": "信用卡支付服务: 您好，您本次订购时间加上之前未到期的订购时间，不能超过15月"
+								}
+							],
+							"hoverColor": "#e35300",
+							"label": "立即购买",
+							"redirect": false,
+							"system": true
+						}
+					],
+					"sort": 800,
+					"type": "actionButtonType"
+				}
+			]
+		}
+	},
+	"ret": [
+		"SUCCESS::调用成功"
+	],
+	"v": "1.0"
+})
+
+mtopjsonp202({
+	"api": "mtop.alibaba.topservice.tmf.article.sku.get",
+	"data": {
+		"sku": {
+			"rowList": [
+				{
+					"code": "priceLayer",
+					"from": "0.0",
+					"lineThrough": false,
+					"sort": 100,
+					"title": "价 格",
+					"to": "0.0",
+					"type": "priceType",
+					"unit": "元"
+				},
+				{
+					"code": "textLayer",
+					"list": [
+						{
+							"text": "少于100",
+							"title": "销量"
+						},
+						{
+							"text": "2038",
+							"title": "评价"
+						}
+					],
+					"sort": 350,
+					"type": "textType"
+				},
+				{
+					"code": "itemLayer",
+					"list": [
+						{
+							"code": "APP_ALIPAY_CREDITCARD_01",
+							"custom": false,
+							"disable": false,
+							"freeTry": false,
+							"label": "信用卡支付服务",
+							"param": {
+								"cycle": [
+									"2:12"
+								],
+								"properties": []
+							},
+							"select": true,
+							"sub": false,
+							"type": "button"
+						}
+					],
+					"sort": 500,
+					"title": "版 本",
+					"type": "buttonType"
+				},
+				{
+					"code": "cycleLayer",
+					"list": [
+						{
+							"code": "2:12",
+							"custom": false,
+							"disable": false,
+							"freeTry": false,
+							"label": "一年",
+							"param": {
+								"itemCode": [
+									"APP_ALIPAY_CREDITCARD_01"
+								],
+								"properties": []
+							},
+							"select": true,
+							"sub": false,
+							"type": "button"
+						}
+					],
+					"sort": 600,
+					"title": "周 期",
+					"type": "buttonType"
+				},
+				{
+					"code": "actionLayer",
+					"list": [
+						{
+							"color": "#ff6a00",
+							"disable": false,
+							"hoverColor": "#e35300",
+							"href": "${nextPage}?&sign=C492973E55113D13E9DAF9DFBC9E5E3B&commonParams=agentId:fuwu.taobao.com|qn_search;endTimestamp:1734935725960;marketKey:TOPSERVICE&subParams=cycleNum:12,cycleUnit:2,itemCode:APP_ALIPAY_CREDITCARD_01,extends:sp.quantity*1",
+							"label": "立即购买",
+							"redirect": true,
+							"system": true
+						}
+					],
+					"sort": 800,
+					"type": "actionButtonType"
+				}
+			]
+		}
+	},
+	"ret": [
+		"SUCCESS::调用成功"
+	],
+	"v": "1.0"
+})

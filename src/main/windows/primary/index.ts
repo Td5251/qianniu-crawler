@@ -15,47 +15,12 @@ let systemConfig: any = {
 }
 let accountLoginInfoMap = new Map();
 
-const qs = require('qs');
 
 //显示打开浏览器
 // let loginBrowser;
 
 //发送请求
 const axios = require('axios');
-
-//运维数据api 参数
-let operationDataApiParam = ""
-
-//店铺数据api 参数
-let shopDataApiParam = ""
-
-//万象台数据api 参数
-let wanXiangTaiDataApiParam = ""
-
-//其他指标数据api 参数
-let otherDataApiParam = ""
-
-//商品数据api 参数
-let goodsDataApiParam = ""
-
-//保证金数据api 
-let depositDataApiParam = ""
-
-//聚合余额数据api 
-let aggregateBalanceDataApiParam = ""
-
-//店铺等级数据api 
-let shopLevelDataApiParam = ""
-
-//统计数据api 
-let statisticsDataApiParam = ""
-
-
-let allShopsInfo = [];
-
-
-let globalBrowser;
-
 
 class SafeQueue<T> {
   private items: T[] = [];
@@ -491,12 +456,17 @@ class SafeCounter {
 let shopsInfoMap = new SafeMap<string, any>();
 let monitoringMap = new SafeMap<string, any>();
 let statisticsMap = new SafeMap<string, any>();
+let couponMap = new SafeMap<string, any>();
+let goodsFlowMap = new SafeMap<string, any>();
 let retrievingFlagMap = new SafeMap<string, any>();
 let monitoringretrievingFlagMap = new SafeMap<string, any>();
 let statisticsretrievingFlagMap = new SafeMap<string, any>();
+let couponretrievingFlagMap = new SafeMap<string, any>();
+let goodsFlowretrievingFlagMap = new SafeMap<string, any>();
 let currentOpenBrowserNumber = new SafeCounter();
 
 
+let deleteGoodsBrowser;
 
 
 const queue = new SafeQueue<any>();
@@ -565,21 +535,21 @@ class PrimaryWindow extends WindowBase {
     } catch (e) {
     }
 
-    // try {
-    //   puppeteer.launch({
-    //     headless: !systemConfig.isShowBrowser,
-    //     args: [
-    //       '--no-sandbox',
-    //       '--disable-setuid-sandbox',
-    //       '--disable-blink-features=AutomationControlled'  // 禁用浏览器的自动化标识
-    //     ],
-    //     executablePath: systemConfig.defaultChromePath
-    //   }).then((browser: any) => {
-    //     globalBrowser = browser;
-    //   });
+    try {
+      puppeteer.launch({
+        headless: !systemConfig.isShowBrowser,
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-blink-features=AutomationControlled'  // 禁用浏览器的自动化标识
+        ],
+        executablePath: systemConfig.defaultChromePath
+      }).then((browser: any) => {
+        deleteGoodsBrowser = browser;
+      });
 
-    // } catch (e) {
-    // }
+    } catch (e) {
+    }
 
     try {
       let browserWindow = this.browserWindow;
@@ -766,6 +736,9 @@ class PrimaryWindow extends WindowBase {
               }
             });
 
+            console.log("isLoginRes", isLoginRes.data);
+
+
             if (isLoginRes.data.code === 0) {
               //将当前登录信息发送到渲染进程
               accountLoginInfoMap.set(requestParam.username, {
@@ -779,6 +752,11 @@ class PrimaryWindow extends WindowBase {
               continue
             }
           }
+
+          console.log(puppeteer);
+
+          console.log(userDataDir);
+
 
           let loginBrowser = await puppeteer.launch({
             headless: false,
@@ -880,32 +858,6 @@ class PrimaryWindow extends WindowBase {
               log.error(e);
               this.browserWindow?.webContents.send("show-error-msgbox", "账号: " + requestParam.username + " 登录失败 请稍后重试!");
             }
-
-
-
-
-            // timer = await new Promise((resolve) => setTimeout(resolve, 6 * 60 * 1000));
-
-            // if (timer) {
-
-            //   //关闭浏览器
-            //   try {
-            //     setTimeout(async () => {
-            //       if (loginBrowser) {
-            //         await loginBrowser.close();
-            //       }
-
-            //     }, 50000);
-            // } catch (e) {
-            //   log.error("关闭浏览器失败");
-            // }
-
-            //   log.info("登录超时");
-            //   //将软件窗口显示出来
-            //   this.browserWindow?.show();
-            //   this.browserWindow?.webContents.send("show-error-msgbox", "账号: " + requestParam.username + " 登录超时 请稍后重试!");
-            // }
-
           } else {
             log.info("登录成功,当前地址：" + currentUrl);
             loginSuccess(loginPage, requestParam, thit);
@@ -920,20 +872,6 @@ class PrimaryWindow extends WindowBase {
 
       //将软件窗口显示出来
       this.browserWindow?.show();
-
-
-      //等待1s
-      // await new Promise((resolve) => setTimeout(resolve, 1000));
-      // //将登录浏览器的所有页面关闭
-      // if (loginBrowser) {
-      //   console.log("关闭浏览器");
-
-      //   let pages = await loginBrowser.pages();
-      //   pages.forEach(async (item: any) => {
-      //     await item.close();
-      //   });
-      // }
-
     });
 
     //获取登录信息
@@ -1258,6 +1196,9 @@ class PrimaryWindow extends WindowBase {
           || !loginInfo.depositParam || currTimeStamp - loginInfo.depositParam.timestamp > 2.8 * 60 * 60 * 1000
           || !loginInfo.aggregateBalanceParam || currTimeStamp - loginInfo.aggregateBalanceParam.timestamp > 2.8 * 60 * 60 * 1000
           || !loginInfo.goodsParam || currTimeStamp - loginInfo.goodsParam.timestamp > 2.8 * 60 * 60 * 1000
+          || !loginInfo.creditCardParam || currTimeStamp - loginInfo.creditCardParam.timestamp > 2.8 * 60 * 60 * 1000
+
+
         ) {
           currentOpenBrowserNumber.increment();
           browser = await puppeteer.launch({
@@ -1284,8 +1225,7 @@ class PrimaryWindow extends WindowBase {
 
         let goodsData = await getGoodsDataByApi(browser, requestParam.username)
 
-        // let statisticsData = await getStatisticsDataByApi(requestParam.username);
-
+        let creditCard = await getCreditCardDataByApi(browser, requestParam.username)
         let responseInfo = {
           id: requestParam.id,
           remark: requestParam.remark,
@@ -1299,7 +1239,7 @@ class PrimaryWindow extends WindowBase {
           aggregateBalance: aggregateBalance,
           ...depositData,
           shopsLevel: shopsLevel,
-          // ...statisticsData,
+          creditCard: creditCard,
 
           status: "success",
         }
@@ -1423,6 +1363,456 @@ class PrimaryWindow extends WindowBase {
         await statisticsretrievingFlagMap.delete(requestParam.id);
       }
     });
+
+    ipcMain.on("get-coupon-data", async (event, param, flag) => {
+      let requestParam = JSON.parse(param);
+      //如果正在获取中 则不再获取
+      let retrievingFlag = await couponretrievingFlagMap.get(requestParam.id);
+
+      if (retrievingFlag) {
+        log.info(requestParam.id + " 正在获取中");
+        return;
+      }
+
+      await couponretrievingFlagMap.set(requestParam.id, true);
+
+      log.info("-----------收到执行获取：" + requestParam.id + "店铺信息的任务-----------");
+      try {
+        let loginFlag = accountLoginInfoMap.get(requestParam.username);
+
+        if (!loginFlag) {
+          requestParam.status = "not-login";
+          await couponretrievingFlagMap.delete(requestParam.id);
+          this.browserWindow?.webContents.send("get-shops-info", JSON.stringify(requestParam));
+          return;
+        }
+
+        if (flag) {
+          let shopsInfo = await couponMap.get(requestParam.id)
+          await couponretrievingFlagMap.delete(requestParam.id);
+          if (!shopsInfo) {
+            requestParam.status = "";
+            this.browserWindow?.webContents.send("get-shops-info", JSON.stringify(requestParam));
+          } else {
+            this.browserWindow?.webContents.send("get-shops-info", JSON.stringify(shopsInfo));
+          }
+          return;
+        }
+        requestParam.status = "retrieving";
+        //将当前店铺信息发送到渲染进程
+        this.browserWindow?.webContents.send("get-shops-info", JSON.stringify(requestParam));
+
+        let isLogin;
+
+        try {
+          isLogin = await initCookieByApi(null, requestParam.username) as any
+        } catch (e: any) {
+          log.error("恢复cookie失败", e);
+          isLogin = false;
+        }
+
+        if (!isLogin) {
+          //删除获取中标识
+          await couponretrievingFlagMap.delete(requestParam.id);
+
+          //删除登录信息
+          accountLoginInfoMap.delete(requestParam.username);
+
+          try {
+
+            //删除cookie文件
+            let cookieDir = path.join(app.getPath("appData"), "qianniu-crawler-cookie");
+            let dirName = requestParam.username.replace(":", "") + ".json";
+
+            //拼接上用户名
+            cookieDir = path.join(cookieDir, dirName);
+
+            if (fs.existsSync(cookieDir)) {
+              fs.unlinkSync(cookieDir);
+            }
+
+          } catch (e: any) {
+            console.log("登录失败");
+          }
+          //响应信息
+          requestParam.status = "not-login";
+          this.browserWindow?.webContents.send("get-shops-info", JSON.stringify(requestParam));
+          return;
+        }
+
+        let couponData = await getCouponDataByApi(requestParam.username);
+
+        console.log("couponData", couponData);
+
+        //拿到shopsInfoMap中的数据
+        let shopsInfo = await monitoringMap.get(requestParam.id);
+
+        console.log("shopsInfo", shopsInfo);
+
+        let responseInfo = {
+          id: requestParam.id,
+          remark: requestParam.remark,
+          crawlerTime: new Date().getTime(),
+          status: "success",
+          couponData: couponData,
+          shopName: shopsInfo?.shopsName
+        }
+
+        await couponMap.set(requestParam.id, responseInfo);
+
+        //将当前店铺信息发送到渲染进程
+        this.browserWindow?.webContents.send("get-shops-info", JSON.stringify(responseInfo));
+      } catch (e) {
+        requestParam.status = "error";
+        this.browserWindow?.webContents.send("get-shops-info", JSON.stringify(requestParam));
+      } finally {
+        await couponretrievingFlagMap.delete(requestParam.id);
+      }
+    })
+
+    //监听添加优惠券任务
+    ipcMain.on("add-coupon", async (event, requestParam: any, selectShops) => {
+
+      console.log("接收到添加优惠券任务");
+
+      console.log("requestParam", requestParam);
+      console.log("selectShops", selectShops);
+
+      requestParam = JSON.parse(requestParam);
+      selectShops = JSON.parse(selectShops);
+
+      const promises: any = []; // 用于存储所有请求的 Promise
+
+
+      for (let shop of selectShops) {
+        // 将每个请求封装成 Promise 并存入 promises 数组
+        await promises.push(sendAddCouponRequest(requestParam, shop));
+      }
+
+      let resultArr: any = []
+      try {
+        // 等待所有请求完成
+        await Promise.allSettled(promises);
+      } catch (error) {
+        log.error("添加优惠券失败", error);
+      }
+
+
+      this.browserWindow?.webContents.send("add-coupon-success", JSON.stringify(resultArr));
+
+
+    })
+
+    //监听删除优惠券
+    ipcMain.on("delete-coupon", async (event, requestParam: any, type: any) => {
+
+      console.log("接收到删除优惠券任务");
+
+      console.log("requestParam", requestParam);
+      console.log("type", type);
+
+      if ("pause" == type) {
+        //暂停
+
+        requestParam = JSON.parse(requestParam);
+        let api = `https://shell.mkt.taobao.com/coupon/pauseActivity`
+
+        for (let item of requestParam) {
+          let param = {
+            "templateCode": item.templateCode,
+            "couponType": 0
+          }
+
+          let shopsInfo = await accountLoginInfoMap.get(item.username);
+
+          try {
+            let res = await axios.post(api, param, {
+              headers: {
+                cookie: shopsInfo.cookie
+              }
+            });
+            log.info(`暂停店铺：${item.username} 优惠券响应：`, res.data);
+          } catch (e: any) {
+            log.error(`暂停店铺：${item.username} 优惠券失败：`, e);
+          }
+        }
+
+        this.browserWindow?.webContents.send("delete-coupon-success", "暂停成功");
+      } else if ("delete" == type) {
+        //删除
+        let api = ` https://shell.mkt.taobao.com/coupon/deleteActivity`
+        requestParam = JSON.parse(requestParam);
+
+        for (let item of requestParam) {
+          let param = {
+            "templateCode": item.templateCode,
+            "couponType": 0
+          }
+
+          let shopsInfo = await accountLoginInfoMap.get(item.username);
+
+          try {
+            let res = await axios.post(api, param, {
+              headers: {
+                cookie: shopsInfo.cookie
+              }
+            });
+            log.info(`删除店铺：${item.username} 优惠券响应：`, res.data);
+          } catch (e: any) {
+            log.error(`删除店铺：${item.username} 优惠券失败：`, e);
+          }
+
+          this.browserWindow?.webContents.send("delete-coupon-success", `删除成功`);
+
+        }
+
+      }
+
+
+
+
+    })
+
+    //监听获取商品流量 get-goods-flow
+    ipcMain.on("get-goods-flow", async (event, param, flag, pageParam) => {
+      let requestParam = JSON.parse(param);
+      pageParam = JSON.parse(pageParam);
+      //如果正在获取中 则不再获取
+      let retrievingFlag = await goodsFlowretrievingFlagMap.get(requestParam.id);
+
+      if (retrievingFlag) {
+        log.info(requestParam.id + " 正在获取中");
+        return;
+      }
+
+      await goodsFlowretrievingFlagMap.set(requestParam.id, true);
+
+      log.info("-----------收到执行获取：" + requestParam.id + "店铺信息的任务-----------");
+      try {
+        let loginFlag = accountLoginInfoMap.get(requestParam.username);
+
+        if (!loginFlag) {
+          requestParam.status = "not-login";
+          await goodsFlowretrievingFlagMap.delete(requestParam.id);
+          this.browserWindow?.webContents.send("get-shops-info", JSON.stringify(requestParam));
+          return;
+        }
+
+        if (flag) {
+          let shopsInfo = await goodsFlowMap.get(requestParam.id)
+          await goodsFlowretrievingFlagMap.delete(requestParam.id);
+          if (!shopsInfo) {
+            requestParam.status = "";
+            this.browserWindow?.webContents.send("get-shops-info", JSON.stringify(requestParam));
+          } else {
+            this.browserWindow?.webContents.send("get-shops-info", JSON.stringify(shopsInfo));
+          }
+          return;
+        }
+        requestParam.status = "retrieving";
+        //将当前店铺信息发送到渲染进程
+        this.browserWindow?.webContents.send("get-shops-info", JSON.stringify(requestParam));
+
+        let isLogin;
+
+        try {
+          isLogin = await initCookieByApi(null, requestParam.username) as any
+        } catch (e: any) {
+          log.error("恢复cookie失败", e);
+          isLogin = false;
+        }
+
+        if (!isLogin) {
+          //删除获取中标识
+          await goodsFlowretrievingFlagMap.delete(requestParam.id);
+
+          //删除登录信息
+          accountLoginInfoMap.delete(requestParam.username);
+
+          try {
+
+            //删除cookie文件
+            let cookieDir = path.join(app.getPath("appData"), "qianniu-crawler-cookie");
+            let dirName = requestParam.username.replace(":", "") + ".json";
+
+            //拼接上用户名
+            cookieDir = path.join(cookieDir, dirName);
+
+            if (fs.existsSync(cookieDir)) {
+              fs.unlinkSync(cookieDir);
+            }
+
+          } catch (e: any) {
+            console.log("登录失败");
+          }
+          //响应信息
+          requestParam.status = "not-login";
+          this.browserWindow?.webContents.send("get-shops-info", JSON.stringify(requestParam));
+          return;
+        }
+
+        let goodsFlow: any = await getGoodsFlowDataByApi(requestParam.username, pageParam);
+
+        //拿到shopsInfoMap中的数据
+        let shopsInfo = await monitoringMap.get(requestParam.id);
+
+        console.log("shopsInfo", shopsInfo);
+
+        let responseInfo = {
+          id: requestParam.id,
+          remark: requestParam.remark,
+          crawlerTime: new Date().getTime(),
+          status: "success",
+          goodsFlow: goodsFlow.data,
+          total: goodsFlow.total,
+          shopName: shopsInfo?.shopsName
+        }
+
+        await goodsFlowMap.set(requestParam.id, responseInfo);
+
+        //将当前店铺信息发送到渲染进程
+        this.browserWindow?.webContents.send("get-shops-info", JSON.stringify(responseInfo));
+      } catch (e) {
+        requestParam.status = "error";
+        this.browserWindow?.webContents.send("get-shops-info", JSON.stringify(requestParam));
+      } finally {
+        await goodsFlowretrievingFlagMap.delete(requestParam.id);
+      }
+
+    })
+
+    //监听删除商品 delete-goods
+    ipcMain.on("delete-goods", async (event, param, type) => {
+
+      console.log("接收到删除商品任务");
+      console.log("param", param);
+      console.log("type", type);
+
+      let keys: any = param.keys()
+
+
+      for (let key of keys) {
+        let page
+        try {
+
+          //等待1.2秒
+          await new Promise((resolve) => setTimeout(resolve, 1200));
+
+          let itemIdList = param.get(key);
+
+          page = await deleteGoodsBrowser.newPage();
+
+          await page.setRequestInterception(true);
+          page.on('request', (request) => {
+            const resourceType = request.resourceType();
+            if (['font', 'image', 'media'].includes(resourceType)) {
+              request.abort(); // 阻止加载样式和其他静态资源
+            } else {
+              request.continue();
+            }
+          });
+
+          //恢复cookie
+          let cookieDir = path.join(app.getPath("appData"), "qianniu-crawler-cookie");
+
+          if (!fs.existsSync(cookieDir)) {
+            fs.mkdirSync(cookieDir);
+          }
+
+          let dirName = key.replace(":", "") + ".json";
+
+          //拼接上用户名
+          cookieDir = path.join(cookieDir, dirName);
+
+          let cookies = JSON.parse(fs.readFileSync(cookieDir, "utf-8"));
+
+          for (let i = 0; i < cookies.length; i++) {
+            let cookie = cookies[i];
+
+            try {
+              await page.setCookie(cookie);
+            } catch (e: any) {
+            }
+          }
+
+          let queryItemId = itemIdList.join("，");
+
+          let url;
+
+          if ("delist" == type) {
+            url = `https://myseller.taobao.com/home.htm/SellManage/on_sale?current=1&pageSize=${itemIdList.length}&queryItemId=${queryItemId}`
+          } else if ("delete" == type) {
+            url = `https://myseller.taobao.com/home.htm/SellManage/in_stock?current=1&pageSize=${itemIdList.length}&queryItemId=${queryItemId}`
+          } else {
+            return;
+          }
+
+          // let url = `https://myseller.taobao.com/home.htm/SellManage/all?current=1&pageSize=${itemIdList.length}&queryItemId=${queryItemId}`
+
+
+          await page.goto(url);
+
+          //等待.next-table-body加载完毕
+          await page.waitForSelector('.next-table-body .next-table-row');
+
+          //等待.next-checkbox-input加载完毕
+          await page.waitForSelector('.next-checkbox-input');
+
+          //获取到.next-checkbox-input并点击
+          await page.click('.next-checkbox-input');
+
+          //执行js操作
+          await page.evaluate((type: any) => {
+            let buttons = document.querySelectorAll('button[data-click-log]') as any;
+
+            if ("delist" == type) {
+              buttons[0].click();
+            } else if ("delete" == type) {
+              buttons[1].click();
+            }
+
+            setTimeout(() => {
+              let btn = document.querySelector('.next-dialog button') as any;
+              console.log("点击确定按钮", btn);
+
+              btn.click();
+            }, 800);
+
+          }, type);
+
+
+        } catch (e: any) {
+          //如果浏览器关闭了 则重新打开一个
+          if (e.message.includes("Target closed")) {
+            deleteGoodsBrowser = await puppeteer.launch({
+              headless: !systemConfig.isShowBrowser,
+              args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-blink-features=AutomationControlled'  // 禁用浏览器的自动化标识
+              ],
+              executablePath: systemConfig.defaultChromePath
+            });
+          }
+          this.browserWindow?.webContents.send("show-error-msgbox", `店铺：${key} 操作失败`);
+
+        } finally {
+          if (page) {
+            setTimeout(async () => {
+              await page.close();
+            }, 3500);
+          }
+        }
+
+      }
+
+
+
+
+      this.browserWindow?.webContents.send("delete-goods-success", "操作成功");
+
+    })
+
 
     //获取配置
     ipcMain.on("get-config", (event) => {
@@ -4707,7 +5097,7 @@ const getStatisticsDataByApi = async (username: any) => {
       if (!data.payByrCnt?.value || data.payByrCnt?.value == 0) {
         statisticsUnitPrice = 0.0;
       } else {
-        statisticsUnitPrice = payAmount / (data.payByrCnt?.value || 1);
+        statisticsUnitPrice = (payAmount / (data.payByrCnt?.value || 1)).toFixed(2)
       }
 
       // 老客复购率
@@ -5108,7 +5498,8 @@ const getOperationDataByApi = async (browserParam: any, username: any) => {
     toBePaid: 0,
     toBeComplaint: 0,
     toBeAfterSale: 0,
-    toBeEvaluated: 0
+    toBeEvaluated: 0,
+    punishmentAlert: 0
   }
   try {
 
@@ -5194,6 +5585,14 @@ const getOperationDataByApi = async (browserParam: any, username: any) => {
     //待评价
     operationData.toBeEvaluated = data.waitForRated || 0;
 
+    //违规
+    operationData.punishmentAlert = data.punishmentAlert
+
+    //如果违规不是数字 那么就是0
+    if (isNaN(operationData.punishmentAlert)) {
+      operationData.punishmentAlert = 0;
+    }
+
   } catch (e: any) {
     log.error("获取运维数据失败");
     log.error(e.message);
@@ -5202,77 +5601,129 @@ const getOperationDataByApi = async (browserParam: any, username: any) => {
       toBePaid: "获取失败",
       toBeComplaint: "获取失败",
       toBeAfterSale: "获取失败",
-      toBeEvaluated: "获取失败"
+      toBeEvaluated: "获取失败",
+      punishmentAlert: "获取失败"
     }
   }
 
   return operationData;
 }
 
-//根据api获取店铺数据
-const getShopDataByApi = async (username: any) => {
 
-  //启动一个浏览器
-  let browser = await puppeteer.launch({
-    headless: !systemConfig.isShowBrowser,
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-blink-features=AutomationControlled',  // 禁用浏览器的自动化标识
-    ],
-    executablePath: systemConfig.defaultChromePath
-  });
-
-
-  let api = 'https://h5api.m.taobao.com/h5/mtop.taobao.jdy.resource.shop.info.get/1.0/?' + shopDataApiParam;
+const getCreditCardDataByApi = async (browserParam: any, username: any) => {
   let loginInfo = accountLoginInfoMap.get(username);
+  let cookieStr = ""
+  let api = ""
+  let currTimeStamp = new Date().getTime();
 
-  if (!loginInfo) {
-    console.log("登录信息不存在");
-    return {}
+  let creditCardData: any = ""
+
+  try {
+
+    if (loginInfo.creditCardParam && currTimeStamp - loginInfo.creditCardParam.timestamp < 2.8 * 60 * 60 * 1000) {
+      cookieStr = loginInfo.creditCardParam.cookieStr;
+      api = loginInfo.creditCardParam.api;
+    } else {
+      let page = await browserParam.newPage();
+      await page.setRequestInterception(true);
+      page.on('request', (request) => {
+        const resourceType = request.resourceType();
+        if (['font', 'image', 'media'].includes(resourceType)) {
+          request.abort(); // 阻止加载样式和其他静态资源
+        } else {
+          request.continue();
+        }
+      });
+
+      page.goto("https://myseller.taobao.com/home.htm/qianniu-app-market/home/service-detail?tracelog=qn_search&service_code=APP_ALIPAY_CREDITCARD");
+
+      //等待.next-btn-helper元素加载完毕
+      await page.waitForSelector(".next-btn-helper");
+
+      //点击.next-btn-helper元素
+      await page.click(".next-btn-helper");
+
+      //监听：https://h5api.m.taobao.com/h5/mtop.alibaba.topservice.tmf.article.sku.get/
+      const targetResponse = await page.waitForResponse(response => {
+        return response.url().includes("mtop.alibaba.topservice.tmf.article.sku.get") && response.status() === 200;
+      });
+
+
+      const cookies = await page.cookies();
+
+      //将cookie组合成字符串
+      cookieStr = cookies.map((item: any) => {
+        return item.name + "=" + item.value;
+      }).join(";");
+
+      api = targetResponse.url();
+
+      loginInfo.creditCardParam = {
+        cookieStr: cookieStr,
+        api: api,
+        timestamp: currTimeStamp
+      }
+    }
+    //在请求头配置Cookie 并发送get请求
+    let response = await axios.get(api, {
+      headers: {
+        'Cookie': cookieStr
+      }
+    });
+
+    console.log("信用卡数据:", response.data);
+
+    response = response.data + ""
+
+    /**
+     mtopjsonp35({"api":"mtop.alibaba.topservice.tmf.article.sku.get","data":{"sku":{"rowList":[{"code":"priceLayer","from":"0.0","lineThrough":false,"sort":100,"title":"价 格","to":"0.0","type":"priceType","unit":"元"},{"code":"textLayer","list":[{"text":"少于100","title":"销量"},{"text":"2038","title":"评价"}],"sort":350,"type":"textType"},{"code":"itemLayer","list":[{"code":"APP_ALIPAY_CREDITCARD_01","custom":false,"disable":true,"errorMsg":["%u60a8%u597d%uff0c%u60a8%u672c%u6b21%u8ba2%u8d2d%u65f6%u95f4%u52a0%u4e0a%u4e4b%u524d%u672a%u5230%u671f%u7684%u8ba2%u8d2d%u65f6%u95f4%uff0c%u4e0d%u80fd%u8d85%u8fc7%u0031%u0035%u6708"],"formatError":[{"msg":"您好，您本次订购时间加上之前未到期的订购时间，不能超过15月"}],"freeTry":false,"label":"信用卡支付服务(已订购)","param":{"cycle":["2:12"],"properties":[]},"select":true,"sub":true,"type":"button"}],"sort":500,"title":"版 本","type":"buttonType"},{"code":"cycleLayer","list":[{"code":"2:12","custom":false,"disable":true,"errorMsg":["%u60a8%u597d%uff0c%u60a8%u672c%u6b21%u8ba2%u8d2d%u65f6%u95f4%u52a0%u4e0a%u4e4b%u524d%u672a%u5230%u671f%u7684%u8ba2%u8d2d%u65f6%u95f4%uff0c%u4e0d%u80fd%u8d85%u8fc7%u0031%u0035%u6708"],"formatError":[{"msg":"您好，您本次订购时间加上之前未到期的订购时间，不能超过15月"}],"freeTry":false,"label":"一年","param":{"itemCode":["APP_ALIPAY_CREDITCARD_01"],"properties":[]},"select":true,"sub":false,"type":"button"}],"sort":600,"title":"周 期","type":"buttonType"},{"code":"actionLayer","list":[{"color":"#ff6a00","disable":true,"errorMsg":["%u4fe1%u7528%u5361%u652f%u4ed8%u670d%u52a1%u003a%u0020%u60a8%u597d%uff0c%u60a8%u672c%u6b21%u8ba2%u8d2d%u65f6%u95f4%u52a0%u4e0a%u4e4b%u524d%u672a%u5230%u671f%u7684%u8ba2%u8d2d%u65f6%u95f4%uff0c%u4e0d%u80fd%u8d85%u8fc7%u0031%u0035%u6708"],"formatError":[{"msg":"信用卡支付服务: 您好，您本次订购时间加上之前未到期的订购时间，不能超过15月"}],"hoverColor":"#e35300","label":"立即购买","redirect":false,"system":true}],"sort":800,"type":"actionButtonType"}]}},"ret":["SUCCESS::调用成功"],"v":"1.0"})
+     */
+
+    //拿到左边第一个{的位置
+    let startIndex = response.indexOf("{");
+
+    //截取字符串
+    response = response.substring(startIndex, response.length - 1);
+
+    console.log("response", response);
+
+    //解析json
+    let jsonRes = JSON.parse(response);
+
+    console.log("解析后的信用卡数据：", jsonRes);
+
+    let data = jsonRes.data?.sku?.rowList || [];
+
+    console.log("data", data);
+
+    //拿到code等于itemLayer的数据
+    let itemLayer = data.find((item: any) => item.code == "itemLayer");
+
+    console.log("itemLayer", itemLayer);
+
+    let item = itemLayer?.list[0];
+
+    console.log("item", item);
+
+    if (item.disable) {
+      creditCardData = item.formatError[0].msg;
+
+      creditCardData = creditCardData.replaceAll("您", "").replaceAll("好", "").replace("，", "")
+
+    } else {
+      creditCardData = "未订购"
+    }
+
+
+
+  } catch (e: any) {
+    log.error("获取信用卡失败");
+    log.error(e.message);
+    creditCardData = "获取失败";
   }
 
-  let cookieDir = path.join(app.getPath("appData"), "qianniu-crawler-cookie");
-
-  let dirName = username.replace(":", "") + ".json";
-
-  //拼接上用户名
-  cookieDir = path.join(cookieDir, dirName);
-
-  //判断文件是否存在
-  if (!fs.existsSync(cookieDir)) {
-    log.error("cookie文件不存在");
-    return {}
-  }
-
-  let cookies = JSON.parse(fs.readFileSync(cookieDir, "utf-8"));
-
-  let cookieStr = cookies.map((item: any) => {
-    return item.name + "=" + item.value;
-  }).join(";");
-
-  console.log(cookieStr);
-
-  console.log("api:", api);
-
-
-
-
-
-
-  //使用axios发送请求
-  // let response = await axios.get(api, {
-  //   headers: {
-  //     'Cookie': cookie
-  //   }
-  // });
-
-  // console.log("response:", response.data);
+  return creditCardData;
 }
-
-//是否正在执行
-// let isRunning = false;
-// let currentUsername = "";
 
 const initSign = async (browserWindow: any) => {
 
@@ -5354,6 +5805,14 @@ const initSign = async (browserWindow: any) => {
             } catch (e: any) {
               // console.log("设置cookie失败");
             }
+          }
+
+          try {
+            await initCreditCard(browser, key);
+
+          } catch (e: any) {
+            console.log("初始化信用卡数据失败");
+            console.log(e);
           }
 
           try {
@@ -5543,6 +6002,8 @@ const initAggregateBalanceSign = async (browserParam: any, username) => {
   //     request.continue();
   //   }
   // });
+
+  //https://one.alimama.com/index.html?
 
   aggregateBalancePage.goto("https://myseller.taobao.com/home.htm/whale-accountant/pay/capital/home");
 
@@ -5742,6 +6203,206 @@ const initCsrfId = async (browserParam: any, username: any) => {
   }
 
 
+}
+
+const initCreditCard = async (browserParam: any, username: any) => {
+
+  let currTimeStamp = new Date().getTime();
+  let page = await browserParam.newPage();
+  await page.setRequestInterception(true);
+  page.on('request', (request) => {
+    const resourceType = request.resourceType();
+    if (['font', 'image', 'media'].includes(resourceType)) {
+      request.abort(); // 阻止加载样式和其他静态资源
+    } else {
+      request.continue();
+    }
+  });
+
+  page.goto("https://myseller.taobao.com/home.htm/qianniu-app-market/home/service-detail?tracelog=qn_search&service_code=APP_ALIPAY_CREDITCARD");
+
+  //等待.next-btn-helper元素加载完毕
+  await page.waitForSelector(".next-btn-helper");
+
+  //点击.next-btn-helper元素
+  await page.click(".next-btn-helper");
+
+  //监听：https://h5api.m.taobao.com/h5/mtop.alibaba.topservice.tmf.article.sku.get/
+  const targetResponse = await page.waitForResponse(response => {
+    return response.url().includes("mtop.alibaba.topservice.tmf.article.sku.get") && response.status() === 200;
+  });
+
+  //通过depositPage 拿到页面的cookie
+  const cookies = await page.cookies();
+
+  //将cookie组合成字符串
+  let cookieStr = cookies.map((item: any) => {
+    return item.name + "=" + item.value;
+  }).join(";");
+
+  let api = targetResponse.url();
+
+  let loginInfo = accountLoginInfoMap.get(username);
+
+  loginInfo.creditCardParam = {
+    cookieStr: cookieStr,
+    api: api,
+    timestamp: currTimeStamp
+  }
+
+  return {
+    cookieStr: cookieStr,
+    api: api,
+    timestamp: currTimeStamp
+  }
+}
+
+
+const getCouponDataByApi = async (username: any) => {
+  let loginInfo = accountLoginInfoMap.get(username);
+
+  let cookieStr = loginInfo.cookie;
+
+  let api = `https://shell.mkt.taobao.com/coupon/getActivities`
+
+  let param = `
+              {
+                "pageSize": 100,
+                "curPage": 1,
+                "couponType": 0,
+                "id": null,
+                "name": null,
+                "status": "-1",
+                "startTime": "",
+                "endTime": "",
+                "amount": null
+            }`
+  try {
+    //在请求头配置Cookie 并发送post请求
+    let response = await axios.post(api, param, {
+      headers: {
+        'Cookie': cookieStr,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    response = response.data;
+
+    log.info(`获取优惠券数据成功`, response);
+
+    if (response.success) {
+      return response.model.dataList;
+    } else {
+      log.error("获取优惠券数据失败");
+      log.error(response);
+      return [];
+    }
+
+  } catch (e: any) {
+    log.error("获取优惠券数据失败");
+    log.error(e.message);
+    return [];
+  }
+
+}
+
+
+const sendAddCouponRequest = async (requestParam: any, shop: any) => {
+  let loginInfo = accountLoginInfoMap.get(shop);
+  let cookieStr = loginInfo.cookie;
+  let api = `https://shell.mkt.taobao.com/coupon/createActivity`
+
+  try {
+    let response = axios.post(api, requestParam, {
+      headers: {
+        'Cookie': cookieStr,
+        'Content-Type': 'application/json'
+      }
+    })
+
+    return {
+      shop: shop,
+      success: true,
+      response: response.data
+    };
+
+  } catch (error: any) {
+    log.error(`添加店铺：${shop} 优惠券失败`, error.message);
+
+    // 返回详细的错误信息
+    return {
+      shop: shop,
+      success: false,
+      response: error.response ? error.response.data : error.message
+    };
+  }
+
+}
+
+function getDate30DaysBefore() {
+  // 创建一个新的日期对象
+  const targetDate = new Date();
+
+  // 获取当前日期的时间戳，减去30天的毫秒数（30 * 24 * 60 * 60 * 1000）
+  targetDate.setDate(targetDate.getDate() - 30);
+
+  // 返回新的日期
+  return targetDate;
+}
+
+const getGoodsFlowDataByApi = async (username: any, pageParam: any) => {
+  let loginInfo = accountLoginInfoMap.get(username);
+
+  let cookieStr = loginInfo.cookie;
+
+  let startDate = getDate30DaysBefore().toISOString().split("T")[0];
+  // let startDate = "2024-11-25"
+  let endDate = formatDate(getYesterday());
+  // let endDate = "2024-12-24"
+
+  console.log(startDate, endDate);
+
+
+  let api = `https://sycm.taobao.com/cc/item/view/top.json?dateRange=${startDate}%7C${endDate}&dateType=recent30&pageSize=${pageParam.pageSize}&page=${pageParam.page}&order=asc&orderBy=itmUv&indexCode=payAmt%2CsucRefundAmt%2CpayItmCnt%2CitemCartCnt%2CitmUv`
+
+  console.log(api);
+
+  try {
+    //在请求头配置Cookie 并发送post请求
+    let response = await axios.get(api, {
+      headers: {
+        'Cookie': cookieStr,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    response = response.data;
+
+    log.info(`获取商品流量数据成功`, response);
+
+
+    if (response.code != 0) {
+      log.error(`获取店铺${username}商品流量数据失败 响应：`);
+      log.error(response);
+      return []
+    }
+
+    let data = response.data.data;
+    let total = response.data.recordCount;
+
+    return {
+      data: data,
+      total: total
+    }
+
+  } catch (e: any) {
+    log.error("获取优惠券数据失败");
+    log.error(e.message);
+    return {
+      data: [],
+      total: 0
+    }
+  }
 }
 
 export default PrimaryWindow;

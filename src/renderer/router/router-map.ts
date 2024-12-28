@@ -29,8 +29,17 @@ const routeMap: Array<RouteRecordRaw> = [
         path: "/primary/statistics",
         name: "statistics",
         component: () => import("@views/primary/statistics/index.vue"),
-      },
-
+      }
+      , {
+        path: "/primary/coupon",
+        name: "coupon",
+        component: () => import("@views/primary/coupon/index.vue"),
+      }
+      , {
+        path: "/primary/flow",
+        name: "flow",
+        component: () => import("@views/primary/flow/index.vue"),
+      }
     ],
   },
 ];

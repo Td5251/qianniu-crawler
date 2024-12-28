@@ -76,6 +76,18 @@ const itemsTop = ref<any["items"]>([
     label: "统计",
     title: "统计",
   },
+  {
+    key: "/primary/coupon",
+    icon: () => h(ClusterOutlined),
+    label: "优惠券",
+    title: "优惠券",
+  },
+  {
+    key: "/primary/flow",
+    icon: () => h(ClusterOutlined),
+    label: "商品流量",
+    title: "商品流量",
+  },
 ]);
 
 

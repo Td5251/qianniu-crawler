@@ -14,9 +14,14 @@
 		<div class="bottom">
 
 			<div class="shops-list">
-				<a-button size="small" @click="getSelectShopsData">
-					获取选中店铺数据
-				</a-button>
+
+				<div style="display: flex;">
+					<a-switch v-model:checked="isSelectAll" checked-children="点击取消全选" un-checked-children="点击全选"
+						@change="selectAllShops" />
+					<a-button size="small" @click="getSelectShopsData">
+						获取选中店铺数据
+					</a-button>
+				</div>
 				<a-tree v-model:expandedKeys="expandedKeys" v-model:selectedKeys="selectedKeys"
 					v-model:checkedKeys="checkedKeys" checkable :tree-data="treeData" :field-names="fieldNames">
 					<template #title="{ name, key }">
@@ -54,8 +59,14 @@
 						<template v-else-if="column.key === 'crawlerTime'">
 							{{ record.crawlerTime ? $td.formatDT(record.crawlerTime) : '/' }}
 						</template>
-
-
+						
+						<template v-else-if="column.key === 'creditCard'">
+							<!-- {{ record.crawlerTime ? $td.formatDT(record.crawlerTime) : '/' }} -->
+							<a-tooltip>
+								<template #title> {{ record?.creditCard }} </template>
+								{{ record?.creditCard.substring(0,6) }}... 
+							</a-tooltip>
+						</template>
 					</template>
 				</a-table>
 			</div>
@@ -90,6 +101,24 @@ let requestParam = ref({
 
 });
 
+let isSelectAll = ref(false);
+
+const selectAllShops = () => {
+	checkedKeys.value = []
+	if (isSelectAll.value) {
+		for(let it of bodyData.value){
+			let typeItem = treeData.value.find((item: any) => item.name == it.type);
+			
+			let child =  typeItem.child.find((item: any) => item.key == it.id);
+
+			if(!child.disabled){
+				checkedKeys.value.push(child.key)
+			}
+		}
+
+	}
+}
+
 let pageData = ref<any>([])
 
 
@@ -108,14 +137,13 @@ const columns: any = [
 		key: "shopsName",
 		align: "center",
 		fixed: 'left',
-		width: 120
+		width: 150
 	},
 	{
 		title: "客服",
 		dataIndex: "service",
 		key: "service",
 		align: "center",
-		fixed: 'left',
 		width: 120
 	},
 	//备注
@@ -139,7 +167,7 @@ const columns: any = [
 		dataIndex: "crawlerTime",
 		key: "crawlerTime",
 		align: "center",
-		width: 120,
+		width: 150,
 	},
 
 	//店铺层级
@@ -368,6 +396,13 @@ const columns: any = [
 		key: "toBeEvaluated",
 		align: "center",
 		width: 120
+	},//违规
+	{
+		title: "违规",
+		dataIndex: "punishmentAlert",
+		key: "punishmentAlert",
+		align: "center",
+		width: 120
 	},
 	//聚合账户余额
 	{
@@ -407,6 +442,14 @@ const columns: any = [
 		title: "需要缴纳的保证金",
 		dataIndex: "needToPayMargin",
 		key: "needToPayMargin",
+		align: "center",
+		width: 120
+	},
+	//信用卡
+	{
+		title: "信用卡",
+		dataIndex: "creditCard",
+		key: "creditCard",
 		align: "center",
 		width: 120
 	},
@@ -497,6 +540,15 @@ const topColumns: any = [
 		align: "center",
 		width: 120
 	},
+	//违规
+	{
+		title: "违规",
+		dataIndex: "punishmentAlert",
+		key: "punishmentAlert",
+		align: "center",
+		width: 120
+	},
+
 	//访客
 	{
 		title: "今日访客",
@@ -735,10 +787,6 @@ const getBodyData = () => {
 				}
 			}
 
-			console.log("分组信息");
-
-			console.log(typeMap);
-
 
 			//拿到所有的key
 			let keys = Object.keys(typeMap);
@@ -908,8 +956,6 @@ getElectronApi().onGetShopsInfo((param: any) => {
 					//更新pageData
 					//将item中的数据更新到pageData中
 					pageItem = Object.assign(pageItem, item);
-
-
 				}
 			}
 		} else if (item.status == 'not-login') {

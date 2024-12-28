@@ -142,4 +142,8 @@
 .ant-select-selection-search {
   overflow: hidden;
 }
+
+.ant-form-item {
+  min-height: 60px;
+}
 </style>
