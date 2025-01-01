@@ -139,7 +139,7 @@ let requestParam = ref({
 
 let pageParam = ref({
 	page: 1,
-	pageSize: 10,
+	pageSize: 20,
 });
 
 let total = ref(0);
@@ -634,7 +634,19 @@ getElectronApi().onGetShopsInfo((param: any) => {
 					goodsFlowItem.crawlerTime = item.crawlerTime;
 					goodsFlowItem.key = goodsFlowItem.mainProductId?.value;
 					pageData.value.push(goodsFlowItem);
+
+					//如果商品流量为0自动勾选
+					if(goodsFlowItem.itmUv?.value == 0){
+						state.selectedRowKeys.push(goodsFlowItem.mainProductId?.value);
+					}
 				}
+
+				//根据商品流量排序 升序
+				pageData.value.sort((a: any, b: any) => {
+					return a.itmUv?.value - b.itmUv?.value;
+				});
+
+
 
 			}
 		}

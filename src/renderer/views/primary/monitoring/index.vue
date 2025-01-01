@@ -49,6 +49,7 @@
 								获取中
 							</a-tag>
 							<a-tag v-else-if="record.status == 'not-login'" :bordered="false" color="warning">未登录</a-tag>
+							<a-tag v-else-if="record.status == 'wait'" :bordered="false" color="error">等待中</a-tag>
 							<a-tag v-else-if="record.status == 'error'" :bordered="false" color="error">网络异常 请点击重试</a-tag>
 							<a-tag color="volcano" v-else>
 
@@ -61,11 +62,27 @@
 						</template>
 						
 						<template v-else-if="column.key === 'creditCard'">
-							<!-- {{ record.crawlerTime ? $td.formatDT(record.crawlerTime) : '/' }} -->
 							<a-tooltip>
 								<template #title> {{ record?.creditCard }} </template>
 								{{ record?.creditCard.substring(0,6) }}... 
 							</a-tooltip>
+						</template>
+
+						<template v-else-if="column.key === 'wxtBalance'">
+							<div v-if="record.status == 'success'">
+								<div v-if="record.wxtBalance&& record.wxtBalance!='/'" >
+									{{ record.wxtBalance }}
+								</div>
+								<a-tag color="processing" v-else>
+								<template #icon>
+									<sync-outlined :spin="true" />
+								</template>
+								获取中
+							</a-tag>
+							</div>
+							<div v-else>
+								{{ record.wxtBalance }}
+							</div>
 						</template>
 					</template>
 				</a-table>
@@ -235,55 +252,7 @@ const columns: any = [
 		align: "center",
 		width: 150
 	},
-	//万相台余额
-	{
-		title: "万相台余额",
-		dataIndex: "wxtBalance",
-		key: "wxtBalance",
-		align: "center",
-		width: 120
-	},
-	//万相台花费
-	{
-		title: "万相台花费",
-		dataIndex: "wxtCharge",
-		key: "wxt-charge",
-		align: "center",
-		width: 120
-	},
-	//万相台展现
-	{
-		title: "万相台展现量",
-		dataIndex: "wxtDisplay",
-		key: "wxt-display",
-		align: "center",
-		width: 120
-	},
-	//万相台点击
-	{
-		title: "万相台点击量",
-		dataIndex: "wxtClick",
-		key: "wxt-click",
-		align: "center",
-		width: 120
-	},
-	//万相台成交
-	{
-		title: "万相台成交金额",
-		dataIndex: "wxtTransaction",
-		key: "wxt-transaction",
-		align: "center",
-		width: 120
-	},
-	//万相台盈亏
-	{
-		title: "万相台投产比",
-		dataIndex: "wxtProfit",
-		key: "wxt-profit",
-		align: "center",
-		width: 120
-	},
-
+	
 	//加购
 	{
 		title: "今/昨加购人数",
@@ -340,6 +309,55 @@ const columns: any = [
 		align: "center",
 		width: 120
 	},
+	//万相台余额
+	{
+		title: "万相台余额",
+		dataIndex: "wxtBalance",
+		key: "wxtBalance",
+		align: "center",
+		width: 120
+	},
+	//万相台花费
+	{
+		title: "万相台花费",
+		dataIndex: "wxtCharge",
+		key: "wxt-charge",
+		align: "center",
+		width: 120
+	},
+	//万相台展现
+	{
+		title: "万相台展现量",
+		dataIndex: "wxtDisplay",
+		key: "wxt-display",
+		align: "center",
+		width: 120
+	},
+	//万相台点击
+	{
+		title: "万相台点击量",
+		dataIndex: "wxtClick",
+		key: "wxt-click",
+		align: "center",
+		width: 120
+	},
+	//万相台成交
+	{
+		title: "万相台成交金额",
+		dataIndex: "wxtTransaction",
+		key: "wxt-transaction",
+		align: "center",
+		width: 120
+	},
+	//万相台盈亏
+	{
+		title: "万相台投产比",
+		dataIndex: "wxtProfit",
+		key: "wxt-profit",
+		align: "center",
+		width: 120
+	},
+
 	//出售中
 	{
 		title: "出售中",
@@ -741,6 +759,8 @@ let paramStart = ref({
 	margin: "/",
 	riskMargin: "/",
 	needToPayMargin: "/",
+	creditCard: "/",
+	punishmentAlert: "/",
 });
 
 const bodyData = ref<any>([
@@ -1052,14 +1072,17 @@ const getSelectShopsData = () => {
 		return;
 	}
 
-	console.log(selectShops);
+	console	.log(selectShops);
 
 
 	for (let i = 0; i < selectShops.length; i++) {
 		let item = selectShops[i];
 		console.log(item);
 
-		getCurrentData(selectShops[i]);
+		// getCurrentData(selectShops[i]);
+		setTimeout(() => {
+			getCurrentData(item);
+		}, i * 200);
 	}
 };
 </script>

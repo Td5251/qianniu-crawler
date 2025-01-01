@@ -15,7 +15,7 @@ let systemConfig: any = {
 }
 let accountLoginInfoMap = new Map();
 
-
+// let browserList: any = []
 //显示打开浏览器
 // let loginBrowser;
 
@@ -551,14 +551,6 @@ class PrimaryWindow extends WindowBase {
     } catch (e) {
     }
 
-    try {
-      let browserWindow = this.browserWindow;
-      setInterval(() => {
-        initSign(browserWindow)
-      }, 1000);
-    } catch (e) {
-
-    }
 
     try {
       //获取appdata目录下qianniu-crawler-config.json
@@ -744,7 +736,7 @@ class PrimaryWindow extends WindowBase {
               accountLoginInfoMap.set(requestParam.username, {
                 username: requestParam.username,
                 cookie: cookieStr,
-                status: "waitInit"
+                status: "success"
               });
 
               this.browserWindow?.webContents.send("get-login-info", accountLoginInfoMap);
@@ -825,21 +817,6 @@ class PrimaryWindow extends WindowBase {
           log.info("当前地址---：" + currentUrl);
 
           if (currentUrl.includes("login.taobao.com")) {
-
-            let timer;
-            // loginPage.on('framenavigated', (frame) => {
-            //   if (frame.url().includes("myseller.taobao.com/home.htm")
-            //     && !frame.url().includes("redirect_url")
-            //   ) {
-            //     log.info("登录成功,当前地址：" + frame.url());
-            //     //删除定时器
-            //     if (timer) {
-            //       clearTimeout(timer);
-            //     }
-            //     timer = null;
-            //     loginSuccess(loginBrowser, requestParam, thit);
-            //   }
-            // });
 
             try {
               //等待https://1bp.taobao.com/report/query.json接口响应
@@ -1031,29 +1008,32 @@ class PrimaryWindow extends WindowBase {
         }
 
 
-        let { shopsName, shopsData, wanxiangtaiData, otherIndicatorsData } = await getOperationAndWanXiangTaiDataByApi(browser, requestParam.username) as any
-        let operationData = await getOperationDataByApi(browser, requestParam.username) as any
-        let depositData = await getDepositDataByApi(browser, requestParam.username)
-        let aggregateBalance = await getAggregateBalanceDataByApi(browser, requestParam.username)
+        // let { shopsName, shopsData, wanxiangtaiData, otherIndicatorsData } = await getOperationAndWanXiangTaiDataByApi(browser, requestParam.username) as any
+        let { shopsLevel, shopsName, shopsData } = await getShopsInfoByApi(browser, requestParam.username) as any
 
-        let goodsData = await getGoodsDataByApi(browser, requestParam.username)
+        // let operationData = await getOperationDataByApi(browser, requestParam.username) as any
+        // let depositData = await getDepositDataByApi(browser, requestParam.username)
+        // let aggregateBalance = await getAggregateBalanceDataByApi(browser, requestParam.username)
 
-        let statisticsData = await getStatisticsDataByApi(requestParam.username);
+        // let goodsData = await getGoodsDataByApi(browser, requestParam.username)
+
+        // let statisticsData = await getStatisticsDataByApi(requestParam.username);
 
         let responseInfo = {
           id: requestParam.id,
           remark: requestParam.remark,
           crawlerTime: new Date().getTime(),
+          shopLevel: shopsLevel,
           shopsName: shopsName,
           ...shopsData,
-          ...operationData,
-          ...wanxiangtaiData,
-          ...otherIndicatorsData,
-          ...goodsData,
-          aggregateBalance: aggregateBalance,
-          ...depositData,
-          shopLevel: shopsData.shopLevel,
-          ...statisticsData,
+          // ...operationData,
+          // ...wanxiangtaiData,
+          // ...otherIndicatorsData,
+          // ...goodsData,
+          // aggregateBalance: aggregateBalance,
+          // ...depositData,
+
+          // ...statisticsData,
 
           status: "success",
         }
@@ -1121,22 +1101,6 @@ class PrimaryWindow extends WindowBase {
           return
         }
 
-
-        systemConfig.maxOpenBrowserNumber = parseInt(systemConfig.maxOpenBrowserNumber);
-        log.info("当前系统配置：", systemConfig);
-        log.info("当前打开浏览器数量：", await currentOpenBrowserNumber.getValue());
-
-
-        //自旋锁等待浏览器数量小于最大值
-        while (await currentOpenBrowserNumber.getValue() >= systemConfig.maxOpenBrowserNumber) {
-          log.info(requestParam.id + "-等待中");
-          requestParam.status = "wait";
-          //将当前店铺信息发送到渲染进程
-          this.browserWindow?.webContents.send("get-shops-info", JSON.stringify(requestParam));
-
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-        }
-
         log.info("开始执行获取：" + requestParam.id + "店铺信息的任务");
         requestParam.status = "retrieving";
         //将当前店铺信息发送到渲染进程
@@ -1188,64 +1152,154 @@ class PrimaryWindow extends WindowBase {
           return;
         }
 
-        let loginInfo = accountLoginInfoMap.get(requestParam.username);
+        // let { shopsName, shopsLevel, shopsData, wanxiangtaiData, otherIndicatorsData } = await getOperationAndWanXiangTaiDataByApi(browser, requestParam) as any
 
-        let currTimeStamp = new Date().getTime();
+        // let { shopsLevel, shopsName, shopsData } = await getShopsInfoByApi(browser, requestParam) as any
+        // let { wanxiangtaiData, otherIndicatorsData } = await getOtherIndicatorsAndWanXiangTaiDataByApi(browser, requestParam) as any
+        // let currentWanXiangTaiData = await getCurrentWanXiangtaiDataByApi(browser, requestParam) as any
+        // let operationData = await getOperationDataByApi(browser, requestParam.username) as any
+        // let depositData = await getDepositDataByApi(browser, requestParam.username)
+        // let aggregateBalance = await getAggregateBalanceDataByApi(browser, requestParam.username)
 
-        if (!loginInfo.operationParam || currTimeStamp - loginInfo.operationParam.timestamp > 2.8 * 60 * 60 * 1000
-          || !loginInfo.depositParam || currTimeStamp - loginInfo.depositParam.timestamp > 2.8 * 60 * 60 * 1000
-          || !loginInfo.aggregateBalanceParam || currTimeStamp - loginInfo.aggregateBalanceParam.timestamp > 2.8 * 60 * 60 * 1000
-          || !loginInfo.goodsParam || currTimeStamp - loginInfo.goodsParam.timestamp > 2.8 * 60 * 60 * 1000
-          || !loginInfo.creditCardParam || currTimeStamp - loginInfo.creditCardParam.timestamp > 2.8 * 60 * 60 * 1000
+        // let goodsData = await getGoodsDataByApi(browser, requestParam.username)
+
+        // let creditCard = await getCreditCardDataByApi(browser, requestParam.username)
+
+        //同时调用getOperationDataByApi、getDepositDataByApi、getAggregateBalanceDataByApi、getGoodsDataByApi、getCreditCardDataByApi
+        //, currentWanXiangTaiData, operationData, depositData, aggregateBalance, goodsData, creditCard
+        let [shopsInfo, otherIndicatorsAndWanXiangTaiData] = await Promise.all([
+          getShopsInfoByApi(browser, requestParam),
+          getOtherIndicatorsAndWanXiangTaiDataByApi(browser, requestParam),
+          // getCurrentWanXiangtaiDataByApi(browser, requestParam),
+          // getOperationDataByApi(browser, requestParam.username),
+          // getDepositDataByApi(browser, requestParam.username),
+          // getAggregateBalanceDataByApi(browser, requestParam.username),
+          // getGoodsDataByApi(browser, requestParam.username),
+          // getCreditCardDataByApi(browser, requestParam.username)
+        ])
+
+        let { shopsLevel, shopsName, shopsData } = shopsInfo as any
+        let { wanxiangtaiData, otherIndicatorsData } = otherIndicatorsAndWanXiangTaiData as any
+
+        let operationData;
+        let currentWanXiangTaiData;
+        let goodsData;
+        let aggregateBalance;
+        let depositData;
+        let creditCard;
 
 
-        ) {
-          currentOpenBrowserNumber.increment();
-          browser = await puppeteer.launch({
-            headless: !systemConfig.isShowBrowser,
-            args: [
-              '--no-sandbox',
-              '--disable-setuid-sandbox',
-              '--disable-blink-features=AutomationControlled'  // 禁用浏览器的自动化标识
-            ],
-            executablePath: systemConfig.defaultChromePath
-          });
-
-          //初始化cookie
-          let initCookiePage: any = await browser.newPage();
-
-          await initCookie(initCookiePage, requestParam);
-        }
-
-
-        let { shopsName, shopsLevel, shopsData, wanxiangtaiData, otherIndicatorsData } = await getOperationAndWanXiangTaiDataByApi(browser, requestParam) as any
-        let operationData = await getOperationDataByApi(browser, requestParam.username) as any
-        let depositData = await getDepositDataByApi(browser, requestParam.username)
-        let aggregateBalance = await getAggregateBalanceDataByApi(browser, requestParam.username)
-
-        let goodsData = await getGoodsDataByApi(browser, requestParam.username)
-
-        let creditCard = await getCreditCardDataByApi(browser, requestParam.username)
         let responseInfo = {
           id: requestParam.id,
           remark: requestParam.remark,
           crawlerTime: new Date().getTime(),
           shopsName: shopsName,
+          shopsLevel: shopsLevel,
           ...shopsData,
-          ...operationData,
           ...wanxiangtaiData,
           ...otherIndicatorsData,
-          ...goodsData,
-          aggregateBalance: aggregateBalance,
-          ...depositData,
-          shopsLevel: shopsLevel,
-          creditCard: creditCard,
-
+          // ...operationData,
+          // ...currentWanXiangTaiData,
+          // ...goodsData,
+          // aggregateBalance: aggregateBalance,
+          // ...depositData,
+          // creditCard: creditCard,
           status: "success",
         }
 
         console.log('responseInfo', responseInfo);
 
+        await monitoringMap.set(requestParam.id, responseInfo);
+
+        //将当前店铺信息发送到渲染进程
+        this.browserWindow?.webContents.send("get-shops-info", JSON.stringify(responseInfo));
+
+        //开启获取其他信息
+
+
+        while (await currentOpenBrowserNumber.getValue() >= systemConfig.maxOpenBrowserNumber) {
+          log.info(requestParam.id + "-等待中")
+          log.info("当前打开浏览器数量：", await currentOpenBrowserNumber.getValue());
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+
+        log.info("当前打开浏览器数量：", await currentOpenBrowserNumber.getValue());
+        await currentOpenBrowserNumber.increment();
+
+        let key = requestParam.username;
+        browser = await puppeteer.launch({
+          headless: !systemConfig.isShowBrowser,
+          args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-blink-features=AutomationControlled',  // 禁用浏览器的自动化标识
+          ],
+          executablePath: systemConfig.defaultChromePath,
+        });
+
+        let page = await browser.newPage();
+
+        //恢复cookie
+        let cookieDir = path.join(app.getPath("appData"), "qianniu-crawler-cookie");
+
+        if (!fs.existsSync(cookieDir)) {
+          fs.mkdirSync(cookieDir);
+        }
+
+        let dirName = key.replace(":", "") + ".json";
+
+        //拼接上用户名
+        cookieDir = path.join(cookieDir, dirName);
+
+        let baseCookies = JSON.parse(fs.readFileSync(cookieDir, "utf-8"));
+
+        for (let i = 0; i < baseCookies.length; i++) {
+          let cookie = baseCookies[i];
+
+          try {
+            await page.setCookie(cookie);
+          } catch (e: any) {
+            // console.log("设置cookie失败");
+          }
+        }
+
+
+        //, currentWanXiangTaiData, operationData, depositData, aggregateBalance, goodsData, creditCard
+        // [currentWanXiangTaiData, operationData, depositData, aggregateBalance, goodsData, creditCard] = await Promise.all([
+        //   getCurrentWanXiangtaiDataByApi(browser, requestParam),
+        //   getOperationDataByApi(browser, requestParam.username),
+        //   getDepositDataByApi(browser, requestParam.username),
+        //   getAggregateBalanceDataByApi(browser, requestParam.username),
+        //   getGoodsDataByApi(browser, requestParam.username),
+        //   getCreditCardDataByApi(browser, requestParam.username)
+        // ])
+
+
+        currentWanXiangTaiData = await getCurrentWanXiangtaiDataByApi(browser, requestParam) as any
+        operationData = await getOperationDataByApi(browser, requestParam.username) as any
+        // depositData = await getDepositDataByApi(browser, requestParam.username)
+        // aggregateBalance = await getAggregateBalanceDataByApi(browser, requestParam.username)
+
+        // goodsData = await getGoodsDataByApi(browser, requestParam.username)
+
+        creditCard = await getCreditCardDataByApi(browser, requestParam.username)
+
+        depositData = await getDepositData(browser)
+        aggregateBalance = await getAggregateBalanceData(browser)
+        goodsData = await getGoodsData(browser)
+
+        //将这些信息 放在responseInfo中
+        responseInfo = {
+          ...responseInfo,
+          ...currentWanXiangTaiData,
+          ...operationData,
+          ...depositData,
+          ...goodsData,
+          creditCard,
+          aggregateBalance,
+        }
+
+        //设置到缓存中
         await monitoringMap.set(requestParam.id, responseInfo);
 
         //将当前店铺信息发送到渲染进程
@@ -1256,7 +1310,9 @@ class PrimaryWindow extends WindowBase {
         this.browserWindow?.webContents.send("get-shops-info", JSON.stringify(requestParam));
       } finally {
         if (browser) {
-          await browser.close();
+          setTimeout(async () => {
+            await browser.close();
+          }, 3500);
           currentOpenBrowserNumber.decrement();
         }
         let requestParam = JSON.parse(param);
@@ -2890,7 +2946,11 @@ const getOperationAndWanXiangTaiDataByApi = async (browserParam: any, requestPar
     //万象台余额
     let wxtBalanceApi = `https://stlacct.taobao.com/settleAccount/account/getRealBalance.json?bizCode=universalBP`
 
-    let cookieStr = loginInfo.csrfId.split("|-|")[1];
+    if (!loginInfo.csrfId) {
+      await initCsrfId(browserParam, username);
+    }
+
+    let cookieStr = loginInfo.csrfId?.split("|-|")[1] || "";
 
     let wxtBalanceRes = await axios.get(wxtBalanceApi, {
       headers: {
@@ -2917,8 +2977,8 @@ const getOperationAndWanXiangTaiDataByApi = async (browserParam: any, requestPar
 
   try {
     //今日万象台数据
-    let csrfId = loginInfo.csrfId.split("|-|")[0];
-    let cookieStr = loginInfo.csrfId.split("|-|")[1];
+    let csrfId = loginInfo.csrfId?.split("|-|")[0] || "";
+    let cookieStr = loginInfo.csrfId?.split("|-|")[1] || "";
 
 
     // let api = `https://1bp.taobao.com/report/query.json?csrfId=${csrfId}&bizCode=universalBP`
@@ -2994,17 +3054,17 @@ const getOperationAndWanXiangTaiDataByApi = async (browserParam: any, requestPar
         fs.unlinkSync(csrfIdDir);
       }
 
-      if (!browserParam) {
-        browserParam = await puppeteer.launch({
-          headless: !systemConfig.isShowBrowser,
-          args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-blink-features=AutomationControlled'  // 禁用浏览器的自动化标识
-          ],
-          executablePath: systemConfig.defaultChromePath
-        });
-      }
+      // if (!browserParam) {
+      //   browserParam = await puppeteer.launch({
+      //     headless: !systemConfig.isShowBrowser,
+      //     args: [
+      //       '--no-sandbox',
+      //       '--disable-setuid-sandbox',
+      //       '--disable-blink-features=AutomationControlled'  // 禁用浏览器的自动化标识
+      //     ],
+      //     executablePath: systemConfig.defaultChromePath
+      //   });
+      // }
       await initCsrfId(browserParam, username);
 
       throw new Error("csrfId过期");
@@ -3039,33 +3099,33 @@ const getOperationAndWanXiangTaiDataByApi = async (browserParam: any, requestPar
         fs.unlinkSync(csrfIdDir);
       }
 
-      if (!browserParam) {
-        browserParam = await puppeteer.launch({
-          headless: !systemConfig.isShowBrowser,
-          args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-blink-features=AutomationControlled'  // 禁用浏览器的自动化标识
-          ],
-          executablePath: systemConfig.defaultChromePath
-        });
-      }
+      // if (!browserParam) {
+      //   browserParam = await puppeteer.launch({
+      //     headless: !systemConfig.isShowBrowser,
+      //     args: [
+      //       '--no-sandbox',
+      //       '--disable-setuid-sandbox',
+      //       '--disable-blink-features=AutomationControlled'  // 禁用浏览器的自动化标识
+      //     ],
+      //     executablePath: systemConfig.defaultChromePath
+      //   });
+      // }
       log.error("csrfId过期，正在重新获取");
       let requestParam = {
         username: username,
       }
-      let initCookiePage = await browserParam.newPage();
-      await initCookie(initCookiePage, requestParam);
+      // let initCookiePage = await browserParam.newPage();
+      // await initCookie(initCookiePage, requestParam);
       await initCsrfId(browserParam, username);
 
-      try {
-        if (browserParam) {
-          setTimeout(() => {
-            browserParam.close();
-          }, 3500);
-        }
-      } catch (e) {
-      }
+      // try {
+      //   if (browserParam) {
+      //     setTimeout(() => {
+      //       browserParam.close();
+      //     }, 3500);
+      //   }
+      // } catch (e) {
+      // }
     }
 
     wanxiangtaiData.wxtCharge = "获取失败 请重新获取";
@@ -3225,7 +3285,6 @@ const getOperationAndWanXiangTaiDataByApi = async (browserParam: any, requestPar
 
 
   //周数据 https://sycm.taobao.com/portal/home.htm?activeKey=operator&dateType=week
-
   try {
     const { firstDayOfLastWeek, lastDayOfLastWeek } = getFirstAndLastDayOfLastWeek()
 
@@ -3329,6 +3388,549 @@ const getOperationAndWanXiangTaiDataByApi = async (browserParam: any, requestPar
   }
 }
 
+const getShopsInfoByApi = async (browserParam: any, requestParam: any) => {
+  let username = requestParam.username;
+
+  let cookieStr = accountLoginInfoMap.get(username)?.cookie || "";
+
+  let shopsInfo: any = await monitoringMap.get(requestParam.id);
+
+
+  let shopsData;
+
+  try {
+
+    if (shopsInfo) {
+      console.log("获取缓存中的店铺数据");
+
+      shopsData = {
+        babyBuality: shopsInfo.babyBuality,
+        logisticsSpeed: shopsInfo.logisticsSpeed,
+        serviceGuarantee: shopsInfo.serviceGuarantee,
+        shopsScore: shopsInfo.shopsScore
+      }
+    } else {
+
+      let shopsDataApi = `https://sycm.taobao.com/portal/new/experience/scorecard.json`
+
+      let shopsDataRes = await axios.get(shopsDataApi, {
+        headers: {
+          "cookie": cookieStr,
+        }
+      });
+
+      let code = shopsDataRes.data.content.code;
+      let data = shopsDataRes.data.content.data;
+
+      if (code != 0) {
+        throw new Error("获取店铺数据失败" + shopsDataRes.data);
+      }
+
+      console.log("店铺数据：", data);
+
+      shopsData = {
+        babyBuality: data.goodsValue,
+        logisticsSpeed: data.logisticsValue,
+        serviceGuarantee: data.serviceExpValue,
+        shopsScore: data.npsValue,
+      }
+
+      console.log("解析后的：", shopsData);
+    }
+
+
+  } catch (e: any) {
+    log.error("获取店铺数据失败", e);
+
+    shopsData = {
+      babyBuality: "获取失败",
+      logisticsSpeed: "获取失败",
+      serviceGuarantee: "获取失败",
+      shopsScore: "获取失败",
+    }
+  }
+
+  let shopsLevel;
+  try {
+
+    if (shopsInfo) {
+      console.log("获取缓存中的店铺等级");
+
+      shopsLevel = shopsInfo.shopsLevel;
+    } else {
+
+      let yesterday = getYesterday();
+      let dateRange = `${formatDate(yesterday)}%7C${formatDate(yesterday)}`;
+      let shopsLevelApi = ` https://sycm.taobao.com/portal/month/overview.json?dateType=day&dateRange=${dateRange}&sellerType=online`
+
+      let shopsLevelRes = await axios.get(shopsLevelApi, {
+        headers: {
+          "cookie": cookieStr,
+        }
+      });
+
+      console.log("店铺等级数据：", shopsLevelRes.data);
+
+      let code = shopsLevelRes.data.content.code;
+      let data = shopsLevelRes.data.content.data;
+
+      if (code != 0) {
+        throw new Error(shopsLevelRes.data);
+      }
+
+      shopsLevel = "第" + data.cateLevel + "层级"
+    }
+
+
+  } catch (e: any) {
+    log.error("获取店铺等级数据失败", e);
+
+    shopsLevel = "获取失败";
+  }
+
+  let shopsName = "";
+  try {
+
+    if (shopsInfo) {
+      console.log("获取缓存中的店铺名称");
+
+      shopsName = shopsInfo.shopsName;
+    } else {
+
+      let shopsNameApi = `https://sycm.taobao.com/custom/menu/getPersonalView.json`
+
+      let shopsNameRes = await axios.get(shopsNameApi, {
+        headers: {
+          "cookie": cookieStr,
+          "Referer": "https://sycm.taobao.com/portal/home.htm"
+        }
+      });
+      let code = shopsNameRes.data.code;
+      let data = shopsNameRes.data.data;
+
+      if (code != 0) {
+        throw new Error(JSON.stringify(shopsNameRes.data));
+      }
+
+      shopsName = data.runAsShopTitle;
+
+      console.log("店铺名称：", data);
+    }
+
+
+  } catch (e: any) {
+    log.error("获取店铺名称失败", e);
+    shopsName = "获取失败";
+  }
+
+  return {
+    shopsLevel: shopsLevel,
+    shopsName: shopsName,
+    shopsData: shopsData
+  }
+}
+
+const getCurrentWanXiangtaiDataByApi = async (browserParam: any, requestParam: any) => {
+
+  let username = requestParam.username;
+  let loginInfo = accountLoginInfoMap.get(username);
+
+  // //万相台数据
+  let wanxiangtaiData: any = {
+    wxtBalance: "", //万象台余额
+    wxtCharge: "", //万象台花费
+    wxtDisplay: "", //万象台展现量
+    wxtClick: "", //万象台点击量
+    wxtTransaction: "", //万相台成交金额
+    wxtProfit: "" //万相台投产比
+  };
+
+  try {
+    //万象台余额
+    let wxtBalanceApi = `https://stlacct.taobao.com/settleAccount/account/getRealBalance.json?bizCode=universalBP`
+
+    if (!loginInfo.csrfId) {
+      await initCsrfId(browserParam, username);
+    }
+
+    let cookieStr = loginInfo.csrfId?.split("|-|")[1] || "";
+
+    let wxtBalanceRes = await axios.get(wxtBalanceApi, {
+      headers: {
+        "Cookie": cookieStr,
+        "Referer": "https://one.alimama.com/"
+      }
+    });
+
+    console.log("wxtBalanceRes", wxtBalanceRes.data);
+
+    wanxiangtaiData.wxtBalance = wxtBalanceRes.data.data.totalGeneralBalance || 0
+
+    //判断wanxiangtaiData.wxtBalance是否为数字
+    if (!isNaN(wanxiangtaiData.wxtBalance)) {
+      wanxiangtaiData.wxtBalance = (wanxiangtaiData.wxtBalance / 100).toFixed(2);
+    }
+
+
+  } catch (e: any) {
+    console.log("获取万象台余额失败", e);
+
+    wanxiangtaiData.wxtBalance = "请开通万象台权限";
+  }
+
+  try {
+    //今日万象台数据
+    let csrfId = loginInfo.csrfId?.split("|-|")[0] || "";
+    let cookieStr = loginInfo.csrfId?.split("|-|")[1] || "";
+
+
+    // let api = `https://1bp.taobao.com/report/query.json?csrfId=${csrfId}&bizCode=universalBP`
+    let api = `https://1bp.taobao.com/report/query.json?csrfId=${csrfId}&bizCode=universalBP`
+    const headers = {
+      'Content-Type': 'application/json', // 表示请求体是JSON格式
+      'Cookie': cookieStr, // 替换为你的Cookie值
+      'Referer': 'https://myseller.taobao.com/home.htm/tuiguangcenter_new/', // 替换为合适的Referer
+    };
+
+    let now = new Date();
+    let startTime = formatDate(now) + ""
+    console.log(startTime);
+
+    let param = {
+      "lite2": false,
+      "source": "home",
+      "fromRealTime": true,
+      "splitType": "sum",
+      "startTime": startTime,
+      "endTime": startTime,
+      "queryFieldIn": ["charge", "adPv", "click", "roi", "alipayInshopAmt"],
+      "bizCode": "universalBP"
+    }
+
+    // 发送 POST 请求
+    const response = await axios.post(api, param, { headers });
+
+    console.log('响应数据:', response.data);
+
+
+    let info = response.data.info
+
+    if (!info.ok) {
+      //删除csrfId
+      let username = loginInfo.username;
+      let csrfIdDir = path.join(app.getPath("appData"), "qianniu-crawler-csrfId");
+      let csrfIdDirName = username.replace(":", "") + ".txt";
+      csrfIdDir = path.join(csrfIdDir, csrfIdDirName);
+
+      if (fs.existsSync(csrfIdDir)) {
+        fs.unlinkSync(csrfIdDir);
+      }
+      await initCsrfId(browserParam, username);
+
+      throw new Error("csrfId过期");
+    }
+
+    let data = response.data.data.list[0]
+
+    wanxiangtaiData.wxtCharge = data.charge || 0;
+
+    if (!isNaN(wanxiangtaiData.wxtCharge)) {
+      wanxiangtaiData.wxtCharge = (wanxiangtaiData.wxtCharge).toFixed(2);
+    }
+
+    wanxiangtaiData.wxtDisplay = data.adPv || 0;
+    wanxiangtaiData.wxtClick = data.click || 0;
+    wanxiangtaiData.wxtTransaction = data.alipayInshopAmt || 0;
+    wanxiangtaiData.wxtProfit = data.roi || 0;
+
+
+  } catch (e: any) {
+    log.error("获取万象台其他数据失败");
+    log.error(e.message);
+
+    if (e.message.includes("403")) {
+      //删除csrfId
+      let username = loginInfo.username;
+      let csrfIdDir = path.join(app.getPath("appData"), "qianniu-crawler-csrfId");
+      let csrfIdDirName = username.replace(":", "") + ".txt";
+      csrfIdDir = path.join(csrfIdDir, csrfIdDirName);
+
+      if (fs.existsSync(csrfIdDir)) {
+        fs.unlinkSync(csrfIdDir);
+      }
+
+      log.error("csrfId过期，正在重新获取");
+      await initCsrfId(browserParam, username);
+    }
+
+    wanxiangtaiData.wxtCharge = "获取失败 请重新获取";
+    wanxiangtaiData.wxtDisplay = "获取失败 请重新获取";
+    wanxiangtaiData.wxtClick = "获取失败 请重新获取";
+    wanxiangtaiData.wxtTransaction = "获取失败 请重新获取";
+    wanxiangtaiData.wxtProfit = "获取失败 请重新获取";
+  }
+
+  return wanxiangtaiData;
+}
+
+const getOtherIndicatorsAndWanXiangTaiDataByApi = async (browserParam: any, requestParam: any) => {
+
+  let username = requestParam.username;
+  let cookieStr = accountLoginInfoMap.get(username).cookie || "";
+
+  // //万相台数据
+  let wanxiangtaiData: any = {
+    visitor: "", //访客数
+    amount: "", //支付金额
+    order: "", //支付子订单数
+  };
+
+
+  //获取今日其他指标数据
+  let otherIndicatorsData: any = {
+    addToCart: "", //加购人数
+    conversionRate: "", //支付转化率
+    pageViews: "", //浏览量
+    buyerNumber: "", //支付买家数
+    unitPrice: "", //客单价
+    addToCartNumber: "", //加购件数
+    collectionNumber: "" //收藏商品数
+  }
+
+  try {
+    let api = `https://sycm.taobao.com/flow/new/live/guide/trend/overview.json?dateType=today&device=0&indexCode=uv%2CitmUv%2CpayByrCnt`
+
+    let otherIndicatorsDataRes = await axios.get(api, {
+      headers: {
+        cookie: cookieStr
+      }
+    });
+
+    console.log("今日其他指标数据：", otherIndicatorsDataRes.data);
+
+    let code = otherIndicatorsDataRes.data.code
+    let data = otherIndicatorsDataRes.data.data.data;
+
+    if (code != 0) {
+      throw new Error("获取今日其他指标数据失败" + JSON.stringify(otherIndicatorsDataRes.data));
+    }
+
+    console.log("今日数据：", data);
+
+    otherIndicatorsData.buyerNumber = data.payByrCnt.value || 0;
+    otherIndicatorsData.conversionRate = data.payRate.value || 0;
+    otherIndicatorsData.pageViews = data.pv.value || 0;
+    otherIndicatorsData.unitPrice = data.payPct.value || 0;
+    otherIndicatorsData.addToCart = data.cartByrCnt.value || 0;
+    otherIndicatorsData.collectionNumber = data.itmCltByrCnt.value || 0;
+
+    wanxiangtaiData.amount = data.payAmt.value || 0;
+    wanxiangtaiData.visitor = data.uv.value || 0;
+
+    if (otherIndicatorsData.conversionRate) {
+      //如果包含小数点
+      //四舍五入
+      otherIndicatorsData.conversionRate = Math.round(otherIndicatorsData.conversionRate * 10000) / 100 + "%";
+    } else {
+      otherIndicatorsData.conversionRate = "0%";
+    }
+
+
+  } catch (e: any) {
+    log.error("获取今日其他指标数据失败");
+    log.error(e.message);
+
+    wanxiangtaiData.amount = "获取失败";
+    wanxiangtaiData.visitor = "获取失败";
+    otherIndicatorsData.buyerNumber = "获取失败";
+    otherIndicatorsData.unitPrice = "获取失败";
+
+  }
+
+  //获取今日子订单数
+  try {
+    let api = `https://sycm.taobao.com/portal/live/new/index/overview.json?dateType=today`
+
+    let otherIndicatorsDataRes = await axios.get(api, {
+      headers: {
+        cookie: cookieStr
+      }
+    });
+
+    console.log("今日其他指标数据：", otherIndicatorsDataRes.data);
+
+    let code = otherIndicatorsDataRes.data.content.code
+    let data = otherIndicatorsDataRes.data.content.data.data.today;
+
+    if (code != 0) {
+      throw new Error("获取其他指标数据失败" + JSON.stringify(otherIndicatorsDataRes.data));
+    }
+
+    //今日子订单数
+    wanxiangtaiData.order = data.payOrdCnt.value || 0;
+  } catch (e: any) {
+    log.error("获取今日子订单数失败");
+    log.error(e.message);
+
+    wanxiangtaiData.order = "获取失败";
+  }
+  //获取昨日日其他指标数据
+
+  try {
+    let yesterday = getYesterday()
+    let dateRange = `${formatDate(yesterday)}%7C${formatDate(yesterday)}`
+    let api = `https://sycm.taobao.com/portal/coreIndex/new/overview/v2.json?dateType=day&dateRange=${dateRange}`
+
+    let otherIndicatorsDataRes = await axios.get(api, {
+      headers: {
+        cookie: cookieStr
+      }
+    });
+
+    console.log("昨日其他指标数据：", otherIndicatorsDataRes.data);
+
+
+    let code = otherIndicatorsDataRes.data.content.code;
+    let data = otherIndicatorsDataRes.data.content.data;
+
+    if (code != 0) {
+      throw new Error("获取其他指标数据失败" + JSON.stringify(otherIndicatorsDataRes.data));
+    }
+
+    otherIndicatorsData.pageViews += "/" + (data.self.pv?.value || 0);
+    let tempConversionRate = (data.self.payRate?.value || 0)
+    otherIndicatorsData.buyerNumber += "/" + (data.self.payByrCnt?.value || 0);
+    otherIndicatorsData.unitPrice += "/" + (data.self.payPct?.value || 0).toFixed(2);
+    otherIndicatorsData.addToCart += "/" + (data.self.cartByrCnt?.value || 0);
+    otherIndicatorsData.collectionNumber += "/" + (data.self.cltItmCnt?.value || 0);
+    otherIndicatorsData.addToCartNumber += "/" + (data.self.cartItemCnt?.value || 0);
+
+    wanxiangtaiData.amount += ("/" + (data.self.rePurchasePayAmount?.value || 0).toFixed(2))
+    wanxiangtaiData.order += ("/" + (data.self.subPayOrdSubCnt?.value || 0))
+    wanxiangtaiData.visitor += ("/" + (data.self.uv?.value || 0))
+
+    if (tempConversionRate) {
+      //如果包含小数点
+      //四舍五入
+      tempConversionRate = Math.round(tempConversionRate * 10000) / 100 + "%";
+      otherIndicatorsData.conversionRate += ("/" + tempConversionRate)
+    } else {
+      otherIndicatorsData.conversionRate += ("/" + otherIndicatorsData.tempConversionRate)
+    }
+
+  } catch (e: any) {
+    log.error("获取其他指标数据失败", e);
+
+    otherIndicatorsData.addToCart += "/获取失败";
+    otherIndicatorsData.conversionRate += "/获取失败";
+    otherIndicatorsData.pageViews += "/获取失败";
+    otherIndicatorsData.buyerNumber += "/获取失败";
+    otherIndicatorsData.unitPrice += "/获取失败";
+    otherIndicatorsData.addToCartNumber += "/获取失败";
+    otherIndicatorsData.collectionNumber += "/获取失败";
+
+  }
+
+
+
+  //周数据 https://sycm.taobao.com/portal/home.htm?activeKey=operator&dateType=week
+  try {
+    const { firstDayOfLastWeek, lastDayOfLastWeek } = getFirstAndLastDayOfLastWeek()
+
+    const weekDateRange = `${formatDate(firstDayOfLastWeek)}%7C${formatDate(lastDayOfLastWeek)}`
+
+    const weekApi = `https://sycm.taobao.com/portal/coreIndex/getShopMainIndexes.json?dateType=week&dateRange=${weekDateRange}`
+
+    console.log("weekApi", weekApi);
+
+    const weekData = await axios.get(weekApi, {
+      headers: {
+        cookie: cookieStr
+      }
+    });
+
+
+    let code = weekData.data.content.code;
+    let data = weekData.data.content.data;
+
+    if (code !== 0) {
+      log.error("获取周数据失败", JSON.stringify(weekData.data));
+      throw new Error("获取周数据失败");
+    }
+
+    //支付金额
+    wanxiangtaiData.amount += "/" + data.subPayOrdAmt.value?.toFixed(2);
+
+    //访客数
+    wanxiangtaiData.visitor += "/" + data.uv.value;
+
+    //支付子订单数
+    wanxiangtaiData.order += "/" + data.payOrdCnt.value;
+
+  } catch (e: any) {
+    log.error("获取周数据失败");
+    log.error(e.message);
+    wanxiangtaiData.amount += "/获取失败";
+    wanxiangtaiData.visitor += "/获取失败";
+    wanxiangtaiData.order += "/获取失败";
+  }
+
+  //月数据 https://sycm.taobao.com/portal/home.htm?activeKey=operator&dateType=month
+  try {
+
+    const { firstDayOfLastMonth, lastDayOfLastMonth } = getFirstAndLastDayOfLastMonth()
+    const monthDateRange = `${formatDate(firstDayOfLastMonth)}%7C${formatDate(lastDayOfLastMonth)}`
+
+    const monthApi = `https://sycm.taobao.com/portal/coreIndex/getShopMainIndexes.json?dateType=month&dateRange=${monthDateRange}`
+    const monthData = await axios.get(monthApi, {
+      headers: {
+        cookie: cookieStr
+      }
+    });
+
+    console.log("monthApi", monthApi);
+
+
+    console.log("monthData", monthData.data);
+
+    let code = monthData.data.content.code;
+    let data = monthData.data.content.data;
+
+    if (code !== 0) {
+      log.error("获取月数据失败", monthData.data);
+      throw new Error("获取月数据失败");
+    }
+
+    //支付金额
+    wanxiangtaiData.amount += "/" + data.subPayOrdAmt.value?.toFixed(2);
+
+    //访客数
+    wanxiangtaiData.visitor += "/" + data.uv.value;
+
+    //支付子订单数
+    wanxiangtaiData.order += "/" + data.payOrdCnt.value;
+
+
+  } catch (e: any) {
+    log.error("获取月数据失败");
+    log.error(e.message);
+    wanxiangtaiData.amount += "/获取失败";
+    wanxiangtaiData.visitor += "/获取失败";
+    wanxiangtaiData.order += "/获取失败";
+  }
+
+  console.log("wanxiangtaiData", wanxiangtaiData);
+
+
+  //周数据 https://sycm.taobao.com/portal/home.htm?activeKey=operator&dateType=week
+
+
+  return {
+    wanxiangtaiData: wanxiangtaiData,
+    otherIndicatorsData: otherIndicatorsData
+  }
+}
+
 //获取商品数据
 const getGoodsData = async (browserParam: any) => {
   let goodsPage = await browserParam.newPage();
@@ -3402,46 +4004,54 @@ const getGoodsDataByApi = async (browserParam: any, username: any) => {
   try {
 
     if (loginInfo.goodsParam && currTimeStamp - loginInfo.goodsParam.timestamp < 2 * 60 * 60 * 1000) {
-      cookieStr = loginInfo.goodsParam.cookieStr;
-      api = loginInfo.goodsParam.api;
+
     } else {
 
-      let page = await browserParam.newPage();
-      await page.setRequestInterception(true);
-      page.on('request', (request) => {
-        const resourceType = request.resourceType();
-        if (['font', 'image', 'media'].includes(resourceType)) {
-          request.abort(); // 阻止加载样式和其他静态资源
-        } else {
-          request.continue();
-        }
-      });
+      //从browserList中随机获取一个browser
+      // let index = Math.floor(Math.random() * browserList.length);
+      // let index = 4
+      // browserParam = browserList[index];
 
-      page.goto("https://myseller.taobao.com/home.htm/SellManage/all?current=1&pageSize=1");
+      await initGoodsSign(browserParam, username);
+
+      // let page = await browserParam.newPage();
+      // await page.setRequestInterception(true);
+      // page.on('request', (request) => {
+      //   const resourceType = request.resourceType();
+      //   if (['font', 'image', 'media'].includes(resourceType)) {
+      //     request.abort(); // 阻止加载样式和其他静态资源
+      //   } else {
+      //     request.continue();
+      //   }
+      // });
+
+      // page.goto("https://myseller.taobao.com/home.htm/SellManage/all?current=1&pageSize=1");
 
 
-      const targetResponse = await page.waitForResponse(response => {
-        return response.url().includes("https://h5api.m.taobao.com/h5/mtop.taobao.sell.pc.manage.async/1.0/") && response.status() === 200;
-      });
+      // const targetResponse = await page.waitForResponse(response => {
+      //   return response.url().includes("https://h5api.m.taobao.com/h5/mtop.taobao.sell.pc.manage.async/1.0/") && response.status() === 200;
+      // });
 
-      //通过aggregateBalancePage 拿到页面的cookie
-      const cookies = await page.cookies();
+      // //通过aggregateBalancePage 拿到页面的cookie
+      // const cookies = await page.cookies();
 
-      //将cookie组合成字符串
-      cookieStr = cookies.map((item: any) => {
-        return item.name + "=" + item.value;
-      }).join(";");
+      // //将cookie组合成字符串
+      // cookieStr = cookies.map((item: any) => {
+      //   return item.name + "=" + item.value;
+      // }).join(";");
 
-      api = targetResponse.url();
+      // api = targetResponse.url();
 
-      let goodsParam = {
-        cookieStr: cookieStr,
-        api: api,
-        timestamp: currTimeStamp
-      }
+      // let goodsParam = {
+      //   cookieStr: cookieStr,
+      //   api: api,
+      //   timestamp: currTimeStamp
+      // }
 
-      loginInfo.goodsParam = goodsParam;
+      // loginInfo.goodsParam = goodsParam;
     }
+    cookieStr = loginInfo.goodsParam.cookieStr;
+    api = loginInfo.goodsParam.api;
 
     let res = await fetch(api, {
       "headers": {
@@ -3496,6 +4106,9 @@ const getGoodsDataByApi = async (browserParam: any, username: any) => {
 
   } catch (e: any) {
     log.error("获取库存信息失败", e.message);
+
+    //删除loginInfo中的goodsParam
+    loginInfo.goodsParam = null;
 
     goodsData = {
       selling: "获取失败",
@@ -3636,45 +4249,54 @@ const getDepositDataByApi = async (browserParam: any, username: any) => {
 
   try {
     if (loginInfo.depositParam && currTimeStamp - loginInfo.depositParam.timestamp < 2 * 60 * 60 * 1000) {
-      cookieStr = loginInfo.depositParam.cookieStr;
-      api = loginInfo.depositParam.api;
+
     } else {
-      let depositPage = await browserParam.newPage();
-      await depositPage.setRequestInterception(true);
-      depositPage.on('request', (request) => {
-        const resourceType = request.resourceType();
-        if (['font', 'image', 'media'].includes(resourceType)) {
-          request.abort(); // 阻止加载样式和其他静态资源
-        } else {
-          request.continue();
-        }
-      });
 
-      depositPage.goto("https://jibu.taobao.com/?nolayout=true#/home");
+      //从browserList中随机获取一个browser
+      // let index = Math.floor(Math.random() * browserList.length);
+      // let index = 2
+      // browserParam = browserList[index];
 
-      const targetResponse = await depositPage.waitForResponse(response => {
-        return response.url().includes("https://acs.m.taobao.com/h5/mtop.alibaba.jibu.quotainfo.get/1.0/") && response.status() === 200;
-      });
+      await initDepositSign(browserParam, username);
+
+      // let depositPage = await browserParam.newPage();
+      // await depositPage.setRequestInterception(true);
+      // depositPage.on('request', (request) => {
+      //   const resourceType = request.resourceType();
+      //   if (['font', 'image', 'media'].includes(resourceType)) {
+      //     request.abort(); // 阻止加载样式和其他静态资源
+      //   } else {
+      //     request.continue();
+      //   }
+      // });
+
+      // depositPage.goto("https://jibu.taobao.com/?nolayout=true#/home");
+
+      // const targetResponse = await depositPage.waitForResponse(response => {
+      //   return response.url().includes("https://acs.m.taobao.com/h5/mtop.alibaba.jibu.quotainfo.get/1.0/") && response.status() === 200;
+      // });
 
 
-      //通过depositPage 拿到页面的cookie
-      const cookies = await depositPage.cookies();
+      // //通过depositPage 拿到页面的cookie
+      // const cookies = await depositPage.cookies();
 
-      //将cookie组合成字符串
-      cookieStr = cookies.map((item: any) => {
-        return item.name + "=" + item.value;
-      }).join(";");
+      // //将cookie组合成字符串
+      // cookieStr = cookies.map((item: any) => {
+      //   return item.name + "=" + item.value;
+      // }).join(";");
 
-      api = targetResponse.url();
+      // api = targetResponse.url();
 
-      let depositParam = {
-        cookieStr: cookieStr,
-        api: api,
-        timestamp: currTimeStamp
-      }
+      // let depositParam = {
+      //   cookieStr: cookieStr,
+      //   api: api,
+      //   timestamp: currTimeStamp
+      // }
 
-      loginInfo.depositParam = depositParam;
+      // loginInfo.depositParam = depositParam;
     }
+    cookieStr = loginInfo.depositParam.cookieStr;
+    api = loginInfo.depositParam.api;
 
     console.log("CookieStr", cookieStr);
     console.log("Api", api);
@@ -3721,6 +4343,10 @@ const getDepositDataByApi = async (browserParam: any, username: any) => {
 
   } catch (e: any) {
     log.error("获取保证金失败", e.message);
+
+    //删除loginInfo中的depositParam
+    loginInfo.depositParam = null;
+
     margin = "获取失败";
     riskMargin = "获取失败";
     needToPayMargin = "获取失败";
@@ -3800,48 +4426,56 @@ const getAggregateBalanceDataByApi = async (browserParam: any, username: any) =>
   try {
 
     if (loginInfo.aggregateBalanceParam && currTimeStamp - loginInfo.aggregateBalanceParam.timestamp < 2 * 60 * 60 * 1000) {
-      cookieStr = loginInfo.aggregateBalanceParam.cookieStr;
-      api = loginInfo.aggregateBalanceParam.api;
+
     } else {
 
-      let aggregateBalancePage = await browserParam.newPage();
+      //从browserList中随机获取一个browser
+      // let index = Math.floor(Math.random() * browserList.length);
+      // let index = 3
+      // browserParam = browserList[index];
+
+      await initAggregateBalanceSign(browserParam, username);
+
+      // let aggregateBalancePage = await browserParam.newPage();
 
 
-      await aggregateBalancePage.setRequestInterception(true);
-      aggregateBalancePage.on('request', (request) => {
-        const resourceType = request.resourceType();
-        if (['font', 'image', 'media'].includes(resourceType)) {
-          request.abort(); // 阻止加载样式和其他静态资源
-        } else {
-          request.continue();
-        }
-      });
+      // await aggregateBalancePage.setRequestInterception(true);
+      // aggregateBalancePage.on('request', (request) => {
+      //   const resourceType = request.resourceType();
+      //   if (['font', 'image', 'media'].includes(resourceType)) {
+      //     request.abort(); // 阻止加载样式和其他静态资源
+      //   } else {
+      //     request.continue();
+      //   }
+      // });
 
-      aggregateBalancePage.goto("https://myseller.taobao.com/home.htm/whale-accountant/pay/capital/home");
+      // aggregateBalancePage.goto("https://myseller.taobao.com/home.htm/whale-accountant/pay/capital/home");
 
 
-      const targetResponse = await aggregateBalancePage.waitForResponse(response => {
-        return response.url().includes("AGGREGATED") && response.status() === 200;
-      });
+      // const targetResponse = await aggregateBalancePage.waitForResponse(response => {
+      //   return response.url().includes("AGGREGATED") && response.status() === 200;
+      // });
 
-      //通过aggregateBalancePage 拿到页面的cookie
-      const cookies = await aggregateBalancePage.cookies();
+      // //通过aggregateBalancePage 拿到页面的cookie
+      // const cookies = await aggregateBalancePage.cookies();
 
-      //将cookie组合成字符串
-      cookieStr = cookies.map((item: any) => {
-        return item.name + "=" + item.value;
-      }).join(";");
+      // //将cookie组合成字符串
+      // cookieStr = cookies.map((item: any) => {
+      //   return item.name + "=" + item.value;
+      // }).join(";");
 
-      api = targetResponse.url();
+      // api = targetResponse.url();
 
-      let aggregateBalanceParam = {
-        cookieStr: cookieStr,
-        api: api,
-        timestamp: currTimeStamp
-      }
+      // let aggregateBalanceParam = {
+      //   cookieStr: cookieStr,
+      //   api: api,
+      //   timestamp: currTimeStamp
+      // }
 
-      loginInfo.aggregateBalanceParam = aggregateBalanceParam;
+      // loginInfo.aggregateBalanceParam = aggregateBalanceParam;
     }
+    cookieStr = loginInfo.aggregateBalanceParam.cookieStr;
+    api = loginInfo.aggregateBalanceParam.api;
 
     //获取聚合账户余额
     let aggregateBalanceDataRes = await axios.get(api, {
@@ -3869,6 +4503,10 @@ const getAggregateBalanceDataByApi = async (browserParam: any, username: any) =>
     }
   } catch (e: any) {
     log.error("获取聚合账户余额失败", e.message);
+
+    //删除loginInfo中的aggregateBalanceParam
+    loginInfo.aggregateBalanceParam = null;
+
     aggregateBalance = "获取失败";
   }
   return aggregateBalance;
@@ -5425,7 +6063,7 @@ const loginSuccess = async (loginPage: any, requestParam: any, thit: any) => {
       username: requestParam.username,
       cookie: cookieStr,
       // csrfId: csrfId,
-      status: "waitInit"
+      status: "success"
     });
 
     thit.browserWindow?.webContents.send("get-login-info", accountLoginInfoMap);
@@ -5504,44 +6142,54 @@ const getOperationDataByApi = async (browserParam: any, username: any) => {
   try {
 
     if (loginInfo.operationParam && currTimeStamp - loginInfo.operationParam.timestamp < 2 * 60 * 60 * 1000) {
-      cookieStr = loginInfo.operationParam.cookieStr;
-      api = loginInfo.operationParam.api;
+
     } else {
-      let page = await browserParam.newPage();
-      await page.setRequestInterception(true);
-      page.on('request', (request) => {
-        const resourceType = request.resourceType();
-        if (['font', 'image', 'media'].includes(resourceType)) {
-          request.abort(); // 阻止加载样式和其他静态资源
-        } else {
-          request.continue();
-        }
-      });
+      //从browserList中随机获取一个browser
+      // let index = Math.floor(Math.random() * browserList.length);
+      // let index = 1
+      // browserParam = browserList[index];
 
-      page.goto("https://myseller.taobao.com/home.htm/QnworkbenchHome/");
+      await initOperationSign(browserParam, username);
 
-      const targetResponse = await page.waitForResponse(response => {
-        return response.url().includes("https://h5api.m.taobao.com/h5/mtop.taobao.qianniu.number.get.v2/1.0") && response.status() === 200;
-      });
+      // let page = await browserParam.newPage();
+      // await page.setRequestInterception(true);
+      // page.on('request', (request) => {
+      //   const resourceType = request.resourceType();
+      //   if (['font', 'image', 'media'].includes(resourceType)) {
+      //     request.abort(); // 阻止加载样式和其他静态资源
+      //   } else {
+      //     request.continue();
+      //   }
+      // });
+
+      // page.goto("https://myseller.taobao.com/home.htm/QnworkbenchHome/");
+
+      // const targetResponse = await page.waitForResponse(response => {
+      //   return response.url().includes("https://h5api.m.taobao.com/h5/mtop.taobao.qianniu.number.get.v2/1.0") && response.status() === 200;
+      // });
 
 
-      const cookies = await page.cookies();
+      // const cookies = await page.cookies();
 
-      //将cookie组合成字符串
-      cookieStr = cookies.map((item: any) => {
-        return item.name + "=" + item.value;
-      }).join(";");
+      // //将cookie组合成字符串
+      // cookieStr = cookies.map((item: any) => {
+      //   return item.name + "=" + item.value;
+      // }).join(";");
 
-      api = targetResponse.url();
+      // api = targetResponse.url();
 
-      let operationParam = {
-        cookieStr: cookieStr,
-        api: api,
-        timestamp: currTimeStamp
-      }
+      // let operationParam = {
+      //   cookieStr: cookieStr,
+      //   api: api,
+      //   timestamp: currTimeStamp
+      // }
 
-      loginInfo.operationParam = operationParam;
+      // loginInfo.operationParam = operationParam;
     }
+    cookieStr = loginInfo.operationParam.cookieStr;
+    api = loginInfo.operationParam.api;
+    console.log("开始执行获取：", api);
+
     //在请求头配置Cookie 并发送get请求
     let response = await axios.get(api, {
       headers: {
@@ -5596,6 +6244,10 @@ const getOperationDataByApi = async (browserParam: any, username: any) => {
   } catch (e: any) {
     log.error("获取运维数据失败");
     log.error(e.message);
+
+    //删除loginInfo中的operationParam
+    loginInfo.operationParam = null;
+
     operationData = {
       toBeDelivered: "获取失败",
       toBePaid: "获取失败",
@@ -5621,49 +6273,58 @@ const getCreditCardDataByApi = async (browserParam: any, username: any) => {
   try {
 
     if (loginInfo.creditCardParam && currTimeStamp - loginInfo.creditCardParam.timestamp < 2.8 * 60 * 60 * 1000) {
-      cookieStr = loginInfo.creditCardParam.cookieStr;
-      api = loginInfo.creditCardParam.api;
+
     } else {
-      let page = await browserParam.newPage();
-      await page.setRequestInterception(true);
-      page.on('request', (request) => {
-        const resourceType = request.resourceType();
-        if (['font', 'image', 'media'].includes(resourceType)) {
-          request.abort(); // 阻止加载样式和其他静态资源
-        } else {
-          request.continue();
-        }
-      });
 
-      page.goto("https://myseller.taobao.com/home.htm/qianniu-app-market/home/service-detail?tracelog=qn_search&service_code=APP_ALIPAY_CREDITCARD");
+      //从browserList中随机获取一个browser
+      // let index = Math.floor(Math.random() * browserList.length);
+      // let index = 0
+      // browserParam = browserList[index];
 
-      //等待.next-btn-helper元素加载完毕
-      await page.waitForSelector(".next-btn-helper");
+      await initCreditCard(browserParam, username);
 
-      //点击.next-btn-helper元素
-      await page.click(".next-btn-helper");
+      // let page = await browserParam.newPage();
+      // await page.setRequestInterception(true);
+      // page.on('request', (request) => {
+      //   const resourceType = request.resourceType();
+      //   if (['font', 'image', 'media'].includes(resourceType)) {
+      //     request.abort(); // 阻止加载样式和其他静态资源
+      //   } else {
+      //     request.continue();
+      //   }
+      // });
 
-      //监听：https://h5api.m.taobao.com/h5/mtop.alibaba.topservice.tmf.article.sku.get/
-      const targetResponse = await page.waitForResponse(response => {
-        return response.url().includes("mtop.alibaba.topservice.tmf.article.sku.get") && response.status() === 200;
-      });
+      // page.goto("https://myseller.taobao.com/home.htm/qianniu-app-market/home/service-detail?tracelog=qn_search&service_code=APP_ALIPAY_CREDITCARD");
+
+      // //等待.next-btn-helper元素加载完毕
+      // await page.waitForSelector(".next-btn-helper");
+
+      // //点击.next-btn-helper元素
+      // await page.click(".next-btn-helper");
+
+      // //监听：https://h5api.m.taobao.com/h5/mtop.alibaba.topservice.tmf.article.sku.get/
+      // const targetResponse = await page.waitForResponse(response => {
+      //   return response.url().includes("mtop.alibaba.topservice.tmf.article.sku.get") && response.status() === 200;
+      // });
 
 
-      const cookies = await page.cookies();
+      // const cookies = await page.cookies();
 
-      //将cookie组合成字符串
-      cookieStr = cookies.map((item: any) => {
-        return item.name + "=" + item.value;
-      }).join(";");
+      // //将cookie组合成字符串
+      // cookieStr = cookies.map((item: any) => {
+      //   return item.name + "=" + item.value;
+      // }).join(";");
 
-      api = targetResponse.url();
+      // api = targetResponse.url();
 
-      loginInfo.creditCardParam = {
-        cookieStr: cookieStr,
-        api: api,
-        timestamp: currTimeStamp
-      }
+      // loginInfo.creditCardParam = {
+      //   cookieStr: cookieStr,
+      //   api: api,
+      //   timestamp: currTimeStamp
+      // }
     }
+    cookieStr = loginInfo.creditCardParam.cookieStr;
+    api = loginInfo.creditCardParam.api;
     //在请求头配置Cookie 并发送get请求
     let response = await axios.get(api, {
       headers: {
@@ -5719,6 +6380,10 @@ const getCreditCardDataByApi = async (browserParam: any, username: any) => {
   } catch (e: any) {
     log.error("获取信用卡失败");
     log.error(e.message);
+
+    //删除loginInfo中的creditCardParam
+    loginInfo.creditCardParam = null
+
     creditCardData = "获取失败";
   }
 
@@ -5880,10 +6545,18 @@ const initSign = async (browserWindow: any) => {
 
 }
 
-const initOperationSign = async (browserParam: any, username) => {
+const initOperationSign = async (browserParam: any, username: any) => {
   let loginInfo = accountLoginInfoMap.get(username);
   let currTimeStamp = new Date().getTime();
   let page = await browserParam.newPage();
+
+  try {
+    await initCookieByPage(page, username);
+
+  } catch (e: any) {
+    log.error("初始化cookie失败", e);
+  }
+
   await page.setRequestInterception(true);
   page.on('request', (request) => {
     const resourceType = request.resourceType();
@@ -5915,15 +6588,15 @@ const initOperationSign = async (browserParam: any, username) => {
     timestamp: currTimeStamp
   }
 
-  try {
-    await page.deleteCookie();
-    setTimeout(async () => {
-      page.close();
-    }
-      , 3500);
-  } catch (e: any) {
-    log.error("关闭页面失败", e);
-  }
+  // try {
+  //   await page.deleteCookie();
+  //   setTimeout(async () => {
+  //     page.close();
+  //   }
+  //     , 3500);
+  // } catch (e: any) {
+  //   log.error("关闭页面失败", e);
+  // }
 
   return {
     cookieStr: cookieStr,
@@ -5932,7 +6605,7 @@ const initOperationSign = async (browserParam: any, username) => {
   }
 }
 
-const initDepositSign = async (browserParam: any, username) => {
+const initDepositSign = async (browserParam: any, username: any) => {
   let currTimeStamp = new Date().getTime();
   let depositPage = await browserParam.newPage();
   // await depositPage.setRequestInterception(true);
@@ -5944,6 +6617,12 @@ const initDepositSign = async (browserParam: any, username) => {
   //     request.continue();
   //   }
   // });
+
+  try {
+    await initCookieByPage(depositPage, username);
+  } catch (e: any) {
+    log.error("初始化cookie失败", e);
+  }
 
   depositPage.goto("https://jibu.taobao.com/?nolayout=true#/home");
 
@@ -5972,6 +6651,7 @@ const initDepositSign = async (browserParam: any, username) => {
     timestamp: currTimeStamp
   }
 
+  // depositPage.close();
   // try {
   //   await depositPage.deleteCookie();
   //   setTimeout(async () => {
@@ -5988,20 +6668,25 @@ const initDepositSign = async (browserParam: any, username) => {
   }
 }
 
-const initAggregateBalanceSign = async (browserParam: any, username) => {
+const initAggregateBalanceSign = async (browserParam: any, username: any) => {
   let currTimeStamp = new Date().getTime();
   let aggregateBalancePage = await browserParam.newPage();
 
+  try {
+    await initCookieByPage(aggregateBalancePage, username);
+  } catch (e: any) {
+    log.error("初始化cookie失败", e);
+  }
 
-  // await aggregateBalancePage.setRequestInterception(true);
-  // aggregateBalancePage.on('request', (request) => {
-  //   const resourceType = request.resourceType();
-  //   if (['font', 'image', 'media'].includes(resourceType)) {
-  //     request.abort(); // 阻止加载样式和其他静态资源
-  //   } else {
-  //     request.continue();
-  //   }
-  // });
+  await aggregateBalancePage.setRequestInterception(true);
+  aggregateBalancePage.on('request', (request) => {
+    const resourceType = request.resourceType();
+    if (['font', 'image', 'media'].includes(resourceType)) {
+      request.abort(); // 阻止加载样式和其他静态资源
+    } else {
+      request.continue();
+    }
+  });
 
   //https://one.alimama.com/index.html?
 
@@ -6046,9 +6731,16 @@ const initAggregateBalanceSign = async (browserParam: any, username) => {
   }
 }
 
-const initGoodsSign = async (browserParam: any, username) => {
+const initGoodsSign = async (browserParam: any, username: any) => {
   let currTimeStamp = new Date().getTime();
   let page = await browserParam.newPage();
+
+  try {
+    await initCookieByPage(page, username);
+  } catch (e: any) {
+    log.error("初始化cookie失败", e);
+  }
+
   await page.setRequestInterception(true);
   page.on('request', (request) => {
     const resourceType = request.resourceType();
@@ -6102,6 +6794,11 @@ const initGoodsSign = async (browserParam: any, username) => {
 
 const initCsrfId = async (browserParam: any, username: any) => {
 
+  // let index = Math.floor(Math.random() * browserList.length);
+  // let index = 0
+  // browserParam = browserList[index];
+
+
   let loginInfo = accountLoginInfoMap.get(username);
 
 
@@ -6126,6 +6823,8 @@ const initCsrfId = async (browserParam: any, username: any) => {
 
 
   let page = await browserParam.newPage();
+
+  await initCookieByPage(page, username);
 
   //拦截静态文件
   // await page.setRequestInterception(true);
@@ -6209,6 +6908,7 @@ const initCreditCard = async (browserParam: any, username: any) => {
 
   let currTimeStamp = new Date().getTime();
   let page = await browserParam.newPage();
+
   await page.setRequestInterception(true);
   page.on('request', (request) => {
     const resourceType = request.resourceType();
@@ -6403,6 +7103,45 @@ const getGoodsFlowDataByApi = async (username: any, pageParam: any) => {
       total: 0
     }
   }
+}
+
+const initCookieByPage = async (page: any, username: any) => {
+  let loginInfo = accountLoginInfoMap.get(username);
+
+  console.log("初始化cookie", username);
+
+
+  //删除页面上的所有cookie
+  await page.deleteCookie();
+
+  //恢复cookie
+  let cookieDir = path.join(app.getPath("appData"), "qianniu-crawler-cookie");
+
+  if (!fs.existsSync(cookieDir)) {
+    fs.mkdirSync(cookieDir);
+  }
+
+  let dirName = username.replace(":", "") + ".json";
+
+  //拼接上用户名
+  cookieDir = path.join(cookieDir, dirName);
+
+  let baseCookies = JSON.parse(fs.readFileSync(cookieDir, "utf-8"));
+
+  for (let i = 0; i < baseCookies.length; i++) {
+    let cookie = baseCookies[i];
+
+    try {
+      await page.setCookie(cookie);
+    } catch (e: any) {
+      // console.log("设置cookie失败");
+    }
+  }
+
+  console.log("初始化cookie成功", username);
+
+
+  return true;
 }
 
 export default PrimaryWindow;
