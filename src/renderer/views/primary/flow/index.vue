@@ -46,6 +46,9 @@
 								获取中
 							</a-tag>
 							<a-tag v-else-if="record.status == 'not-login'" :bordered="false" color="warning">未登录</a-tag>
+
+							<a-tag v-else-if="record.status == 'error'" :bordered="false" color="error">获取失败</a-tag>
+
 							<a-tag v-else :bordered="false" color="volcano">待获取</a-tag>
 						</template>
 
@@ -813,6 +816,16 @@ const onSelectChange = (selectedRowKeys: any[]) => {
   console.log('selectedRowKeys changed: ', selectedRowKeys);
   state.selectedRowKeys = selectedRowKeys;
 };
+
+getElectronApi().onShowSuccessMsgbox((msg: any) => {
+  $td.closeLoading();
+  $td.message.success(msg);
+});
+
+getElectronApi().onShowErrorMsgbox((msg: any) => {
+  $td.closeLoading();
+  $td.message.error(msg);
+});
 </script>
 
 <style scoped>

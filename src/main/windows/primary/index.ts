@@ -465,6 +465,8 @@ let couponretrievingFlagMap = new SafeMap<string, any>();
 let goodsFlowretrievingFlagMap = new SafeMap<string, any>();
 let currentOpenBrowserNumber = new SafeCounter();
 
+let allGoodsDataMap = new SafeMap<string, any>();
+let allGoodsFlowDataMap = new SafeMap<string, any>();
 
 let deleteGoodsBrowser;
 
@@ -1633,6 +1635,8 @@ class PrimaryWindow extends WindowBase {
     ipcMain.on("get-goods-flow", async (event, param, flag, pageParam) => {
       let requestParam = JSON.parse(param);
       pageParam = JSON.parse(pageParam);
+
+      let shopsInfo = await shopsInfoMap.get(requestParam.id);
       //如果正在获取中 则不再获取
       let retrievingFlag = await goodsFlowretrievingFlagMap.get(requestParam.id);
 
@@ -1707,21 +1711,100 @@ class PrimaryWindow extends WindowBase {
           return;
         }
 
-        let goodsFlow: any = await getGoodsFlowDataByApi(requestParam.username, pageParam);
+        let goodsData = await allGoodsDataMap.get(requestParam.username);
 
-        //拿到shopsInfoMap中的数据
-        let shopsInfo = await monitoringMap.get(requestParam.id);
+        if (!goodsData) {
+          goodsData = await getAllGoodsData(requestParam.username);
+        }
 
-        console.log("shopsInfo", shopsInfo);
+        if (!goodsData) {
+          log.error("获取商品信息失败");
+          //发送获取失败信息 
+          this.browserWindow?.webContents.send("show-error-msgbox", "获取商品信息失败");
+
+          requestParam.status = "error";
+          this.browserWindow?.webContents.send("get-shops-info", JSON.stringify(requestParam));
+          //删除获取中标识
+          await goodsFlowretrievingFlagMap.delete(requestParam.id);
+
+
+          return
+        }
+
+        await allGoodsDataMap.set(requestParam.username, goodsData);
+
+
+
+        // let goodsFlow: any = await getGoodsFlowDataByApi(requestParam.username, pageParam);
+        let goodsFlow: any = await allGoodsFlowDataMap.get(requestParam.username);
+
+        if (!goodsFlow) {
+          goodsFlow = await getGoodsFlowAllDataByApi(requestParam.username);
+        }
+
+
+        if (!goodsFlow) {
+          log.error("获取商品流量失败");
+          //发送获取失败信息 
+          this.browserWindow?.webContents.send("show-error-msgbox", "获取商品流量失败");
+
+          requestParam.status = "error";
+          this.browserWindow?.webContents.send("get-shops-info", JSON.stringify(requestParam));
+          //删除获取中标识
+          await goodsFlowretrievingFlagMap.delete(requestParam.id);
+          return
+        }
+
+        await allGoodsFlowDataMap.set(requestParam.username, goodsFlow);
+
+        // await getGoodsFlowAllDataByApi(requestParam.username);
+
+        console.log("goodsFlow", goodsFlow);
+
+
+        let resultFlow: any = []
+
+        for (let goods of goodsData) {
+
+
+          let goodsFlowItem = goodsFlow.find((item: any) => item.mainProductId.value == goods.mainProductId);
+
+          if (goodsFlowItem) {
+            resultFlow.push(goodsFlowItem);
+          } else {
+            resultFlow.push({
+              item: {
+                title: goods.goodsName,
+                pictUrl: goods.imgSrc,
+                online: true
+              },
+              mainProductId: {
+                value: goods.mainProductId
+              },
+              itmUv: {
+                value: 0
+              },
+            })
+          }
+
+        }
+
+        //根据分页参数 进行分页
+        let start = (pageParam.page - 1) * pageParam.pageSize;
+        let end = pageParam.page * pageParam.pageSize;
+
+        let total = resultFlow.length;
+
+        resultFlow = resultFlow.slice(start, end);
 
         let responseInfo = {
           id: requestParam.id,
           remark: requestParam.remark,
           crawlerTime: new Date().getTime(),
           status: "success",
-          goodsFlow: goodsFlow.data,
-          total: goodsFlow.total,
-          shopName: shopsInfo?.shopsName
+          goodsFlow: resultFlow,
+          total: total,
+          shopName: shopsInfo?.shopsName,
         }
 
         await goodsFlowMap.set(requestParam.id, responseInfo);
@@ -1731,6 +1814,9 @@ class PrimaryWindow extends WindowBase {
       } catch (e) {
         requestParam.status = "error";
         this.browserWindow?.webContents.send("get-shops-info", JSON.stringify(requestParam));
+
+        log.error("获取商品流量失败", e);
+
       } finally {
         await goodsFlowretrievingFlagMap.delete(requestParam.id);
       }
@@ -7105,6 +7191,79 @@ const getGoodsFlowDataByApi = async (username: any, pageParam: any) => {
   }
 }
 
+const getGoodsFlowAllDataByApi = async (username: any) => {
+
+  let pageParam = {
+    page: 1,
+    pageSize: 20,
+  }
+
+  let resultFlowData: any = []
+
+  let loginInfo = accountLoginInfoMap.get(username);
+
+  let cookieStr = loginInfo.cookie;
+
+  let startDate = getDate30DaysBefore().toISOString().split("T")[0];
+  // let startDate = "2024-11-25"
+  let endDate = formatDate(getYesterday());
+  // let endDate = "2024-12-24"
+
+  console.log(startDate, endDate);
+
+
+  let api = `https://sycm.taobao.com/cc/item/view/top.json?dateRange=${startDate}%7C${endDate}&dateType=recent30&pageSize=${pageParam.pageSize}&page=${pageParam.page}&order=asc&orderBy=itmUv&indexCode=payAmt%2CsucRefundAmt%2CpayItmCnt%2CitemCartCnt%2CitmUv`
+
+  console.log(api);
+
+  try {
+    //在请求头配置Cookie 并发送post请求
+    let response = await axios.get(api, {
+      headers: {
+        'Cookie': cookieStr,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    response = response.data;
+
+    log.info(`获取商品流量数据成功`, response);
+
+
+    if (response.code != 0) {
+      log.error(`获取店铺${username}商品流量数据失败 响应：`);
+      log.error(response);
+      return []
+    }
+
+    let data = response.data.data;
+    let total = response.data.recordCount;
+
+    resultFlowData = resultFlowData.concat(data);
+
+
+    //根据total 计算出总页数
+    //如果可以整除 则直接除 否则加1
+    let totalPage = total % pageParam.pageSize == 0 ? total / pageParam.pageSize : Math.floor(total / pageParam.pageSize) + 1;
+
+    //循环获取所有数据
+    for (let i = 2; i <= totalPage; i++) {
+      pageParam.page = i;
+
+      let pageData: any = await getGoodsFlowDataByApi(username, pageParam);
+
+      resultFlowData = resultFlowData.concat(pageData.data);
+    }
+
+  } catch (e: any) {
+    log.error("获取优惠券数据失败");
+    log.error(e.message);
+
+  }
+  return resultFlowData
+}
+
+
 const initCookieByPage = async (page: any, username: any) => {
   let loginInfo = accountLoginInfoMap.get(username);
 
@@ -7142,6 +7301,184 @@ const initCookieByPage = async (page: any, username: any) => {
 
 
   return true;
+}
+
+
+const getAllGoodsData = async (username: any) => {
+
+  let browser;
+
+
+  try {
+
+    browser = await puppeteer.launch({
+      headless: !systemConfig.isShowBrowser,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-blink-features=AutomationControlled'  // 禁用浏览器的自动化标识
+      ],
+      executablePath: systemConfig.defaultChromePath
+    });
+
+    //打开一个新的页面
+    let page = await browser.newPage();
+
+    //初始化cookie
+    await initCookieByPage(page, username);
+
+    //打开https://qn.taobao.com/home.htm/SellManage/all?current=1&pageSize=60
+
+
+    //打开拦截
+    await page.setRequestInterception(true);
+
+    //拦截非必要的请求
+    page.on('request', (request) => {
+      const resourceType = request.resourceType();
+      if (['font', 'image', 'media'].includes(resourceType)) {
+        request.abort(); // 阻止加载样式和其他静态资源
+      } else {
+        request.continue();
+      }
+    });
+
+    page.goto("https://qn.taobao.com/home.htm/SellManage/all?current=1&pageSize=60");
+
+    // let num = 0
+
+    // //等待mtop.taobao.sell.pc.manage.async请求加载完毕
+    // await page.waitForResponse(response => {
+
+    //   if (response.url().includes("mtop.taobao.sell.pc.manage.async") && response.status() === 200) {
+    //     num++
+    //   }
+
+
+    // });
+
+    // console.log("num", num);
+
+    //等待.next-table-row元素加载完毕
+    await page.waitForSelector(".next-table-row");
+
+    console.log("内容加载完毕");
+
+
+    //等待1秒
+    await new Promise((resolve) => { setTimeout(resolve, 5000) });
+
+
+    //拿到总页数
+
+    //document.querySelector('.next-pagination-display').innerText
+
+    let total = await page.evaluate(() => {
+      // let ele = document.querySelector('.next-pagination-display') as HTMLElement;
+      let ele = document.querySelector('.next-pagination-total') as HTMLElement;
+      return ele?.innerText;
+    });
+
+    //total='共498件商品'
+    const match = total.match(/\d+/g); // 使用正则提取所有数字
+
+    //正则拿到总页数
+
+
+    let totalNum = parseInt(match![0]);
+
+    console.log("总条数", totalNum);
+
+    //计算总页数
+    let totalPage = totalNum % 60 == 0 ? totalNum / 60 : Math.floor(totalNum / 60) + 1;
+
+    console.log("总页数", totalPage);
+
+
+    //拿到所有商品数据
+    let goodsData = await page.evaluate(() => {
+
+      let result: any = [];
+
+      let tableEle = document.querySelector('.next-table-body') as HTMLElement;
+      let tableItem = tableEle?.children
+
+      for (let itemEle of tableItem) {
+        let ele = itemEle.querySelector('[label="商品名称"]') as HTMLElement;
+        if (ele) {
+          let eleText = ele.innerText;
+          let goodsName = eleText.split("\n")[0];
+          let mainProductId = eleText.split("\n")[1].split(":")[1];
+
+          let imgEle = itemEle.querySelector('img') as HTMLElement;
+          let imgSrc = imgEle.getAttribute("src");
+
+          result.push({
+            goodsName: goodsName,
+            mainProductId: mainProductId,
+            imgSrc: imgSrc
+          })
+        }
+      }
+      return result;
+    });
+
+
+    for (let i = 2; i <= totalPage; i++) {
+      //拿到.next-next 并点击
+      await page.click('.next-next');
+
+      //等待.mtop.taobao.sell.pc.manage.async请求加载完毕
+      // await page.waitForResponse(response => {
+      //   return response.url().includes("mtop.taobao.sell.pc.manage.async") && response.status() === 200;
+      // });
+
+      //等待1秒
+      await new Promise((resolve) => { setTimeout(resolve, 5000) });
+
+      let data = await page.evaluate(() => {
+
+        let result: any = [];
+
+        let tableEle = document.querySelector('.next-table-body') as HTMLElement;
+        let tableItem = tableEle?.children
+
+        for (let itemEle of tableItem) {
+          let ele = itemEle.querySelector('[label="商品名称"]') as HTMLElement;
+          if (ele) {
+            let eleText = ele.innerText;
+            let goodsName = eleText.split("\n")[0];
+            let mainProductId = eleText.split("\n")[1].split(":")[1];
+
+            let imgEle = itemEle.querySelector('img') as HTMLElement;
+            let imgSrc = imgEle.getAttribute("src");
+
+            result.push({
+              goodsName: goodsName,
+              mainProductId: mainProductId,
+              imgSrc: imgSrc
+            })
+          }
+        }
+        return result;
+      });
+
+      goodsData = goodsData.concat(data);
+    }
+
+    return goodsData;
+
+  } catch (e: any) {
+    log.error("获取商品数据失败");
+    log.error(e);
+    return null
+
+  } finally {
+    if (browser) {
+      browser.close();
+    }
+  }
+
 }
 
 export default PrimaryWindow;
