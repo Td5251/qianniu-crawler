@@ -105,6 +105,12 @@
           show-less-items
           @change="changePage"
         />
+
+				<div>
+					已勾选：<span style="font-weight: 900;">{{ state.selectedRowKeys.length }}</span> 个商品
+
+					共：<span style="font-weight: 900;">{{ total }}</span> 个商品
+				</div>
       </div>
 			</div>
 		</div>
@@ -608,11 +614,13 @@ getElectronApi().onGetShopsInfo((param: any) => {
 	item = Object.assign(item, requestParam);
 
 	console.log("获取到的数据", param);
+	state.selectedRowKeys = []
 	
 
 	for (let i = 0; i < bodyData.value.length; i++) {
 		let item = bodyData.value[i];
 		if (item.status == "success") {
+			
 
 			//如果选中的id中有这个id并且状态是success并且pageData中没有这个id
 			if (checkedKeys.value.includes(item.id)) {
@@ -637,6 +645,8 @@ getElectronApi().onGetShopsInfo((param: any) => {
 					goodsFlowItem.crawlerTime = item.crawlerTime;
 					goodsFlowItem.key = goodsFlowItem.mainProductId?.value;
 					pageData.value.push(goodsFlowItem);
+
+					
 
 					//如果商品流量为0自动勾选
 					if(goodsFlowItem.itmUv?.value == 0){
@@ -818,11 +828,15 @@ const onSelectChange = (selectedRowKeys: any[]) => {
 };
 
 getElectronApi().onShowSuccessMsgbox((msg: any) => {
+	console.log("msg", msg);
+	
   $td.closeLoading();
   $td.message.success(msg);
 });
 
 getElectronApi().onShowErrorMsgbox((msg: any) => {
+	console.log("msg", msg);
+	
   $td.closeLoading();
   $td.message.error(msg);
 });
