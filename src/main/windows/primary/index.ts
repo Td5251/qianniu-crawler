@@ -1808,6 +1808,9 @@ class PrimaryWindow extends WindowBase {
         //根据itemUv进行排序 从小到大
         resultFlow = resultFlow.sort((a: any, b: any) => a.itmUv.value - b.itmUv.value);
 
+        //拿到流量为0的商品数量
+        let zeroFlowCount = resultFlow.filter((item: any) => item.itmUv.value == 0).length;
+
         //根据分页参数 进行分页
         let start = (pageParam.page - 1) * pageParam.pageSize;
         let end = pageParam.page * pageParam.pageSize;
@@ -1815,6 +1818,8 @@ class PrimaryWindow extends WindowBase {
         let total = resultFlow.length;
 
         resultFlow = resultFlow.slice(start, end);
+
+
 
         let responseInfo = {
           id: requestParam.id,
@@ -1824,6 +1829,7 @@ class PrimaryWindow extends WindowBase {
           goodsFlow: resultFlow,
           total: total,
           shopName: shopsInfo?.shopsName,
+          zeroFlowCount: zeroFlowCount
         }
 
         await goodsFlowMap.set(requestParam.id, responseInfo);

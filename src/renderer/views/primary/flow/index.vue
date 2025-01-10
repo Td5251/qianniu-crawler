@@ -107,7 +107,7 @@
         />
 
 				<div>
-					已勾选：<span style="font-weight: 900;">{{ state.selectedRowKeys.length }}</span> 个商品
+					共勾选：<span style="font-weight: 900;">{{ zeroFlowCount }}</span> 个商品
 
 					共：<span style="font-weight: 900;">{{ total }}</span> 个商品
 				</div>
@@ -152,6 +152,8 @@ let pageParam = ref({
 });
 
 let total = ref(0);
+
+let zeroFlowCount = ref(0);
 
 let isSelectAll = ref(false);
 
@@ -614,6 +616,7 @@ getElectronApi().onGetShopsInfo((param: any) => {
 	item = Object.assign(item, requestParam);
 
 	console.log("获取到的数据", param);
+	zeroFlowCount.value = requestParam.zeroFlowCount;
 	state.selectedRowKeys = []
 	
 
