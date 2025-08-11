@@ -1,0 +1,43 @@
+# 比如：你执行了命令 git tag v1.0.0 && git push td v1.0.0，这时工作流会自动识别
+# refs/tags/v1.0.0，因为它以 refs/tags/v 开头，startsWith(...) 为 true，就会触发发布流程。
+# 删除远程tag：git push td :refs/tags/v1.0.0
+# 删除本地tag：git tag -d v1.0.0
+# name: Build/IMS
+name: Build qianniu-crawler App for Windows
+
+on:
+  push:
+    tags:
+      - "v*" # Trigger only on tag pushes, e.g., v1.1.0
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      # 检查存储库
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      # Set up Node.js environment 设置 Node.js 环境
+      - name: ⚙️ Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18.18.2
+
+      # Install dependencies 安装依赖
+      - name: 📦 Install dependencies
+        run: npm install
+
+      # Build the Electron app 构建 Electron 应用
+      - name: 🔧 Build Electron app
+        run: npm run build:win64
+
+      # 上传构建产物
+      - name: 📤 Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: electron-win64-app
+          path: out/make/**/ # Upload all build outputs (e.g., .exe files)
+          retention-days: 1/24 # 1小时（1天=24小时）
